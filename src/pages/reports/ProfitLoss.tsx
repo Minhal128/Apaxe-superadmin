@@ -2,7 +2,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Search, Download, List } from 'lucide-react'
+import { ChevronDown, ChevronUp, Download, List } from 'lucide-react'
 
 export default function ProfitLoss() {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)

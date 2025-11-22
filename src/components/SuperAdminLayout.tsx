@@ -129,14 +129,17 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
     <div className="flex flex-col h-full bg-white">
       {/* Logo Section */}
       <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg">A</span>
-          </div>
-          <div>
-            <span className="text-lg font-bold text-gray-800">Apex</span>
-            <span className="text-lg font-bold text-green-600">Trade</span>
-          </div>
+        <div className="flex items-center justify-center">
+          <img src="/logo.png" alt="Logo"  
+          style={
+            {
+              // marginTop:"-50px" ,
+              width:"100px",
+              height:"80px",
+              marginLeft:"-40px"
+              
+            }
+          }/>
         </div>
       </div>
 
