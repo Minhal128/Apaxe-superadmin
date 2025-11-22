@@ -179,8 +179,8 @@ export default function UserEditLog() {
 
               <div className="flex items-center gap-2">
                 <Label className="text-sm text-gray-600 whitespace-nowrap min-w-20">Script name</Label>
-                <Select defaultValue="" className="flex-1">
-                  <SelectTrigger className="bg-gray-100">
+                <Select defaultValue="">
+                  <SelectTrigger className="bg-gray-100 flex-1">
                     <SelectValue placeholder="Search" />
                   </SelectTrigger>
                   <SelectContent>
