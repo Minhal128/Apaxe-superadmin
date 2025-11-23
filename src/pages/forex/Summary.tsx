@@ -79,20 +79,22 @@ export default function ForexSummary() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold text-gray-800">Summary</h1>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              type="text"
-              placeholder="Search"
-              className="pl-9 w-full"
-            />
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-xl font-semibold text-gray-800">Summary</h1>
+          <div className="flex items-center gap-3">
+            <div className="relative w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search"
+                className="pl-9 h-10"
+              />
+            </div>
+            <Button variant="outline" size="icon" className="h-10 w-10">
+              <Download className="w-4 h-4" />
+            </Button>
           </div>
-          <Button variant="outline" size="icon" className="shrink-0">
-            <Download className="w-4 h-4" />
-          </Button>
         </div>
       </div>
 

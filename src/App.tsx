@@ -10,6 +10,7 @@ import SuperAdminLayout from './components/SuperAdminLayout'
 
 // Dashboard & Pages
 import SuperAdminDashboard from './pages/SuperAdminDashboard'
+import MarketWatch from './pages/MarketWatch'
 import Summary from './pages/Summary'
 import ExposureSummary from './pages/ExposureSummary'
 
@@ -78,6 +79,7 @@ function App() {
 
         {/* Super Admin Routes */}
         <Route path="/superadmin/dashboard" element={<SuperAdminLayout><SuperAdminDashboard /></SuperAdminLayout>} />
+        <Route path="/superadmin/market-watch" element={<SuperAdminLayout><MarketWatch /></SuperAdminLayout>} />
         <Route path="/superadmin/summary" element={<SuperAdminLayout><Summary /></SuperAdminLayout>} />
         <Route path="/superadmin/exposure-summary" element={<SuperAdminLayout><ExposureSummary /></SuperAdminLayout>} />
         

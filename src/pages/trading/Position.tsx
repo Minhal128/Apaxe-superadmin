@@ -83,7 +83,7 @@ export default function Position() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-gray-800">Position report</h1>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" className="shrink-0">
+            <Button variant="outline" size="icon" className="h-10 w-10">
               <Grid3x3 className="w-4 h-4" />
             </Button>
           </div>

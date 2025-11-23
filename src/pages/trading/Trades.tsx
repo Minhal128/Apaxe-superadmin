@@ -181,38 +181,25 @@ export default function Trades() {
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-gray-800">Trades</h1>
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="relative md:hidden">
+          <div className="flex items-center gap-3">
+            <div className="relative w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
-                placeholder="Search..."
-                className="pl-9 w-32"
+                placeholder="Search trades..."
+                className="pl-9 h-10"
               />
             </div>
             <Button 
               variant="outline" 
               size="icon"
               onClick={() => setShowFilters(!showFilters)}
-              className="md:hidden"
+              className="md:hidden h-10 w-10"
             >
               <Filter className="w-4 h-4" />
             </Button>
-            <Button variant="outline" size="icon" className="hidden md:flex">
+            <Button variant="outline" size="icon" className="hidden md:flex h-10 w-10">
               <Grid3x3 className="w-4 h-4" />
             </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Search Bar - Desktop */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3 hidden md:block">
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search trades..."
-              className="pl-9"
-            />
           </div>
         </div>
       </div>

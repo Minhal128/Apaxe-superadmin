@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { 
   LayoutDashboard, 
   TrendingUp, 
@@ -16,7 +16,8 @@ import {
   Calculator,
   Edit3,
   PieChart,
-  Gauge
+  Gauge,
+  LogOut
 } from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -29,6 +30,7 @@ interface SuperAdminLayoutProps {
 
 export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
   const location = useLocation()
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [tradingOpen, setTradingOpen] = useState(true)
   const [forexOpen, setForexOpen] = useState(false)
@@ -436,6 +438,15 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
               </Link>
             )
           })}
+
+          {/* Logout Button */}
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-gray-700 hover:bg-gray-100 mt-2"
+          >
+            <LogOut size={18} />
+            <span>Log out</span>
+          </button>
         </nav>
       </ScrollArea>
     </div>

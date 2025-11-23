@@ -19,20 +19,22 @@ export default function MarginManagement() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <h1 className="text-xl font-semibold text-gray-800">Margin Management</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-gray-800">Margin Management</h1>
+          <div className="relative w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              type="text"
+              placeholder="Search"
+              className="pl-9 h-10"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center gap-4 flex-wrap">
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              type="text"
-              placeholder="Search"
-              className="pl-9"
-            />
-          </div>
           
           <Select defaultValue="">
             <SelectTrigger className="w-32">

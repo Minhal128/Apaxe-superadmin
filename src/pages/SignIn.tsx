@@ -26,9 +26,12 @@ export default function SignIn() {
     // Route based on selected role
     if (role === 'super-admin') {
       navigate('/superadmin/dashboard')
-    } else {
-      // Redirect to admin panel (different application)
-      window.location.href = 'http://localhost:5174/dashboard' // Admin panel URL
+    } else if (role === 'admin') {
+      // Redirect to admin panel
+      window.location.href = 'https://forexadmin.vercel.app/'
+    } else if (role === 'master') {
+      // Redirect to master panel
+      window.location.href = 'https://forexmaster.vercel.app/'
     }
   }
 
@@ -43,11 +46,11 @@ export default function SignIn() {
       <div className="w-full max-w-sm sm:max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-6 sm:mb-8">
-          <img 
+          {/* <img 
             src="/logo.png" 
             alt="ApexTrade Logo" 
             className="h-12 sm:h-16 w-auto mx-auto mb-3 sm:mb-4"
-          />
+          /> */}
         </div>
         
         <h1 className="text-white text-xl sm:text-2xl md:text-3xl font-bold text-center mb-4 sm:mb-6 md:mb-8 px-2">
@@ -84,7 +87,6 @@ export default function SignIn() {
                 <SelectContent>
                   <SelectItem value="super-admin">Super Admin</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="sub-admin">Sub Admin</SelectItem>
                   <SelectItem value="master">Master</SelectItem>
                 </SelectContent>
               </Select>

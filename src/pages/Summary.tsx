@@ -31,10 +31,18 @@ export default function Summary() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <h1 className="text-xl font-semibold text-gray-800">Summary</h1>
           <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-            <Button variant="outline" className="text-green-600 border-green-600 hover:bg-green-50 text-xs sm:text-sm flex-1 sm:flex-none">
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search"
+                className="pl-9 h-10"
+              />
+            </div>
+            <Button variant="outline" className="text-green-600 border-green-600 hover:bg-green-50 text-xs sm:text-sm flex-shrink-0">
               Script wise
             </Button>
-            <Button className="bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm flex-1 sm:flex-none">
+            <Button className="bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm flex-shrink-0">
               Net position
             </Button>
             <Button variant="outline" size="icon" className="shrink-0">
@@ -47,14 +55,6 @@ export default function Summary() {
       {/* Desktop Filters */}
       <div className="hidden sm:block bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              type="text"
-              placeholder="Search"
-              className="pl-9"
-            />
-          </div>
           
           <Select defaultValue="nse">
             <SelectTrigger className="w-full sm:w-32">
@@ -147,15 +147,6 @@ export default function Summary() {
         {/* Collapsible Filters for Mobile */}
         {isFiltersOpen && (
           <div className="mt-4 space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                type="text"
-                placeholder="Search"
-                className="pl-9"
-              />
-            </div>
-            
             <Select defaultValue="nse">
               <SelectTrigger>
                 <SelectValue placeholder="Market" />

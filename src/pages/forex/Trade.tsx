@@ -185,32 +185,34 @@ export default function ForexTrade() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          {isMobile && (
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => setShowFilters(!showFilters)}
-              className="md:hidden"
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-          )}
-          <h1 className="text-xl font-semibold text-gray-800">Trades</h1>
-        </div>
-        <div className="flex items-center gap-2 md:gap-4">
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder="Search"
-              className="w-32 md:w-64 pl-8 md:pl-3"
-            />
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 md:hidden" />
+      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {isMobile && (
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setShowFilters(!showFilters)}
+                className="md:hidden"
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+            )}
+            <h1 className="text-xl font-semibold text-gray-800">Trades</h1>
           </div>
-          <Button variant="outline" size="icon" className="hidden md:flex">
-            <Download className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="relative w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search"
+                className="pl-9 h-10"
+              />
+            </div>
+            <Button variant="outline" size="icon" className="hidden md:flex h-10 w-10">
+              <Download className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
 

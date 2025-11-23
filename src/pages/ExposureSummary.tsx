@@ -31,8 +31,16 @@ export default function ExposureSummary() {
       <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between">
           <h1 className="text-lg sm:text-xl font-semibold text-gray-800">Exposure Summary</h1>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" className="h-9 w-9 sm:h-10 sm:w-10">
+          <div className="flex items-center gap-3">
+            <div className="relative w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search"
+                className="pl-9 h-10"
+              />
+            </div>
+            <Button variant="outline" size="icon" className="h-10 w-10">
               <Grid3x3 className="w-4 h-4" />
             </Button>
           </div>
@@ -42,15 +50,6 @@ export default function ExposureSummary() {
       {/* Filters */}
       <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 flex-wrap">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              type="text"
-              placeholder="Search"
-              className="pl-9 h-10"
-            />
-          </div>
-          
           <div className="grid grid-cols-2 sm:flex gap-3 w-full sm:w-auto">
             <Select defaultValue="">
               <SelectTrigger className="w-full sm:w-32 h-10">
