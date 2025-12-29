@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Search, Plus, Grid3x3, ChevronDown } from 'lucide-react'
+import { dashboardAPI } from '@/services/api'
+import { useRealTimeData } from '@/hooks/useApi'
 
 export default function SuperAdminDashboard() {
   const [selectedMarket, setSelectedMarket] = useState('NSE')
@@ -13,15 +15,49 @@ export default function SuperAdminDashboard() {
   const [selectedCEPE, setSelectedCEPE] = useState('')
   const [selectedStrike, setSelectedStrike] = useState('')
 
-  const nseData = [
-    { symbol: 'NIFTY 500', bidRate: '25,278.00', askRate: '25,278.00', ltp: '25,278.00', change: '0.64', netChange: '0.64', high: '25,291.00', low: '25,291.00', open: '25,291.00', close: '25,291.00' },
-    { symbol: 'NIFTY 500', bidRate: '25,278.00', askRate: '25,278.00', ltp: '25,278.00', change: '0.64', netChange: '0.64', high: '25,291.00', low: '25,291.00', open: '25,291.00', close: '25,291.00' },
-  ]
+  // Use real API data with real-time updates
+  const { data: dashboardData, loading: dashboardLoading } = useRealTimeData(
+    dashboardAPI.getDashboard,
+    'marketDataUpdate',
+    30000 // Refresh every 30 seconds
+  )
 
-  const mcxData = [
-    { symbol: 'NIFTY 500', bidRate: '25,278.00', askRate: '25,278.00', ltp: '25,278.00', change: '0.64', netChange: '0.64', high: '25,291.00', low: '25,291.00', open: '25,291.00', close: '25,291.00' },
-    { symbol: 'NIFTY 500', bidRate: '25,278.00', askRate: '25,278.00', ltp: '25,278.00', change: '0.64', netChange: '0.64', high: '25,291.00', low: '25,291.00', open: '25,291.00', close: '25,291.00' },
-  ]
+  const { data: nseData, loading: nseLoading } = useRealTimeData(
+    () => dashboardAPI.getMarketWatch('NSE'),
+    'marketDataUpdate',
+    10000 // Refresh every 10 seconds
+  )
+
+  const { data: mcxData, loading: mcxLoading } = useRealTimeData(
+    () => dashboardAPI.getMarketWatch('MCX'),
+    'marketDataUpdate',
+    10000 // Refresh every 10 seconds
+  )
+
+  // Fallback data while loading
+  const nseInstruments = nseData?.instruments || []
+  const mcxInstruments = mcxData?.instruments || []
+
+  const handleAddExpiry = async () => {
+    // TODO: Implement add expiry functionality
+    console.log('Add expiry clicked')
+  }
+
+  const handleAddScripts = async () => {
+    // TODO: Implement add scripts functionality
+    console.log('Add scripts clicked')
+  }
+
+  if (dashboardLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -38,11 +74,11 @@ export default function SuperAdminDashboard() {
                 className="pl-10 h-10 bg-gray-50 border-gray-200 w-full"
               />
             </div>
-            <Button className="bg-green-500 hover:bg-green-600 text-white text-sm px-4 h-10">
+            <Button className="bg-green-500 hover:bg-green-600 text-white text-sm px-4 h-10" onClick={handleAddExpiry}>
               <Plus className="w-4 h-4 mr-2" />
               Expiry
             </Button>
-            <Button className="bg-green-500 hover:bg-green-600 text-white text-sm px-4 h-10">
+            <Button className="bg-green-500 hover:bg-green-600 text-white text-sm px-4 h-10" onClick={handleAddScripts}>
               <Plus className="w-4 h-4 mr-2" />
               Scripts
             </Button>
@@ -136,20 +172,39 @@ export default function SuperAdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {nseData.map((row, index) => (
-                  <TableRow key={index} className="hover:bg-gray-50">
-                    <TableCell className="font-medium px-4 py-3">{row.symbol}</TableCell>
-                    <TableCell className="px-4 py-3">{row.bidRate}</TableCell>
-                    <TableCell className="px-4 py-3">{row.askRate}</TableCell>
-                    <TableCell className="px-4 py-3">{row.ltp}</TableCell>
-                    <TableCell className="px-4 py-3">{row.change}</TableCell>
-                    <TableCell className="px-4 py-3">{row.netChange}</TableCell>
-                    <TableCell className="px-4 py-3">{row.high}</TableCell>
-                    <TableCell className="px-4 py-3">{row.low}</TableCell>
-                    <TableCell className="px-4 py-3">{row.open}</TableCell>
-                    <TableCell className="px-4 py-3">{row.close}</TableCell>
+                {nseLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto mb-2"></div>
+                      Loading NSE data...
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : nseInstruments.length > 0 ? (
+                  nseInstruments.map((row: any, index: number) => (
+                    <TableRow key={index} className="hover:bg-gray-50">
+                      <TableCell className="font-medium px-4 py-3">{row.symbol}</TableCell>
+                      <TableCell className="px-4 py-3">{row.bidRate}</TableCell>
+                      <TableCell className="px-4 py-3">{row.askRate}</TableCell>
+                      <TableCell className="px-4 py-3">{row.ltp}</TableCell>
+                      <TableCell className={`px-4 py-3 ${parseFloat(row.change) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {row.change}
+                      </TableCell>
+                      <TableCell className={`px-4 py-3 ${parseFloat(row.netChange) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {row.netChange}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">{row.high}</TableCell>
+                      <TableCell className="px-4 py-3">{row.low}</TableCell>
+                      <TableCell className="px-4 py-3">{row.open}</TableCell>
+                      <TableCell className="px-4 py-3">{row.close}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                      No NSE data available
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -180,20 +235,39 @@ export default function SuperAdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mcxData.map((row, index) => (
-                  <TableRow key={index} className="hover:bg-gray-50">
-                    <TableCell className="font-medium px-4 py-3">{row.symbol}</TableCell>
-                    <TableCell className="px-4 py-3">{row.bidRate}</TableCell>
-                    <TableCell className="px-4 py-3">{row.askRate}</TableCell>
-                    <TableCell className="px-4 py-3">{row.ltp}</TableCell>
-                    <TableCell className="px-4 py-3">{row.change}</TableCell>
-                    <TableCell className="px-4 py-3">{row.netChange}</TableCell>
-                    <TableCell className="px-4 py-3">{row.high}</TableCell>
-                    <TableCell className="px-4 py-3">{row.low}</TableCell>
-                    <TableCell className="px-4 py-3">{row.open}</TableCell>
-                    <TableCell className="px-4 py-3">{row.close}</TableCell>
+                {mcxLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto mb-2"></div>
+                      Loading MCX data...
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : mcxInstruments.length > 0 ? (
+                  mcxInstruments.map((row: any, index: number) => (
+                    <TableRow key={index} className="hover:bg-gray-50">
+                      <TableCell className="font-medium px-4 py-3">{row.symbol}</TableCell>
+                      <TableCell className="px-4 py-3">{row.bidRate}</TableCell>
+                      <TableCell className="px-4 py-3">{row.askRate}</TableCell>
+                      <TableCell className="px-4 py-3">{row.ltp}</TableCell>
+                      <TableCell className={`px-4 py-3 ${parseFloat(row.change) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {row.change}
+                      </TableCell>
+                      <TableCell className={`px-4 py-3 ${parseFloat(row.netChange) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {row.netChange}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">{row.high}</TableCell>
+                      <TableCell className="px-4 py-3">{row.low}</TableCell>
+                      <TableCell className="px-4 py-3">{row.open}</TableCell>
+                      <TableCell className="px-4 py-3">{row.close}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                      No MCX data available
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
