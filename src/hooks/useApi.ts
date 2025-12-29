@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AxiosResponse } from 'axios';
+import type { AxiosResponse } from "axios";
+
 
 interface ApiState<T> {
   data: T | null;
@@ -81,12 +82,19 @@ export function useApi<T = any>(
   };
 }
 
+// Define interface for pagination parameters
+interface PaginationParams {
+  page: number;
+  limit: number;
+  [key: string]: any; // Allow additional filter parameters
+}
+
 // Specialized hook for paginated data
-export function usePaginatedApi<T = any>(
-  apiFunction: (params: any) => Promise<AxiosResponse<any>>,
-  initialParams: any = {}
+export function usePaginatedApi(
+  apiFunction: (params: PaginationParams) => Promise<AxiosResponse<any>>,
+  initialParams: Partial<PaginationParams> = {}
 ) {
-  const [params, setParams] = useState({
+  const [params, setParams] = useState<PaginationParams>({
     page: 1,
     limit: 50,
     ...initialParams,
@@ -95,11 +103,11 @@ export function usePaginatedApi<T = any>(
   const { data, loading, error, execute } = useApi(apiFunction);
 
   const loadPage = useCallback((page: number) => {
-    setParams(prev => ({ ...prev, page }));
+    setParams((prev: PaginationParams) => ({ ...prev, page }));
   }, []);
 
-  const updateFilters = useCallback((newFilters: any) => {
-    setParams(prev => ({ ...prev, ...newFilters, page: 1 }));
+  const updateFilters = useCallback((newFilters: Partial<PaginationParams>) => {
+    setParams((prev: PaginationParams) => ({ ...prev, ...newFilters, page: 1 }));
   }, []);
 
   const refresh = useCallback(() => {
@@ -131,7 +139,7 @@ export function useRealTimeData<T = any>(
   const { data, loading, error, execute } = useApi<T>(apiFunction, { immediate: true });
   
   useEffect(() => {
-    const handleUpdate = (event: CustomEvent) => {
+    const handleUpdate = (_event: CustomEvent) => {
       // Refresh data when real-time update is received
       execute();
     };

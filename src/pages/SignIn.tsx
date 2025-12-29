@@ -2,36 +2,31 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Eye, EyeOff } from 'lucide-react'
 import { toast } from 'react-toastify'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function SignIn() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [role, setRole] = useState('')
+  const { login, isLoading } = useAuth()
+  const [email, setEmail] = useState('admin@apextrade.com')
+  const [password, setPassword] = useState('admin123456')
   const [showPassword, setShowPassword] = useState(false)
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!email || !password || !role) {
+    if (!email || !password) {
       toast.error('Please fill in all fields')
       return
     }
     
-    toast.success('Login successful!')
-    
-    // Route based on selected role
-    if (role === 'super-admin') {
-      navigate('/superadmin/dashboard')
-    } else if (role === 'admin') {
-      // Redirect to admin panel
-      window.location.href = 'https://forexadmin.vercel.app/'
-    } else if (role === 'master') {
-      // Redirect to master panel
-      window.location.href = 'https://forexmaster.vercel.app/'
+    try {
+      await login({ email, password })
+      navigate('/dashboard')
+    } catch (error) {
+      // Error is already handled in AuthContext
+      console.error('Login failed:', error)
     }
   }
 
@@ -54,12 +49,12 @@ export default function SignIn() {
         </div>
         
         <h1 className="text-white text-xl sm:text-2xl md:text-3xl font-bold text-center mb-4 sm:mb-6 md:mb-8 px-2">
-          APEX ADMIN SIGN IN
+          APEX SUPERADMIN SIGN IN
         </h1>
         
         <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 md:p-8">
           <h2 className="text-gray-700 text-center mb-4 sm:mb-6 text-xs sm:text-sm md:text-base px-2">
-            Please fill in your unique admin login details below
+            Please fill in your superadmin login details below
           </h2>
           
           <form onSubmit={handleSignIn} className="space-y-4 sm:space-y-6">
@@ -73,23 +68,8 @@ export default function SignIn() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
                 className="h-10 sm:h-11 text-sm sm:text-base"
+                disabled={isLoading}
               />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 text-xs sm:text-sm mb-2">
-                Role
-              </label>
-              <Select value={role} onValueChange={setRole}>
-                <SelectTrigger className="h-10 sm:h-11 text-sm sm:text-base">
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="super-admin">Super Admin</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="master">Master</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             <div>
@@ -103,11 +83,13 @@ export default function SignIn() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   className="h-10 sm:h-11 text-sm sm:text-base pr-10"
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  disabled={isLoading}
                 >
                   {showPassword ? 
                     <EyeOff size={18} className="sm:w-5 sm:h-5" /> : 
@@ -119,6 +101,7 @@ export default function SignIn() {
                 <button
                   type="button"
                   className="text-gray-500 text-xs sm:text-sm hover:text-gray-700"
+                  disabled={isLoading}
                 >
                   Forgot password?
                 </button>
@@ -128,10 +111,27 @@ export default function SignIn() {
             <Button 
               type="submit" 
               className="w-full h-10 sm:h-11 text-sm sm:text-base font-medium"
+              disabled={isLoading}
             >
-              Sign In
+              {isLoading ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Signing In...
+                </div>
+              ) : (
+                'Sign In'
+              )}
             </Button>
           </form>
+
+          {/* Test Credentials Info */}
+          <div className="mt-6 p-3 bg-gray-50 rounded-lg">
+            <p className="text-xs text-gray-600 text-center">
+              <strong>Test Credentials:</strong><br />
+              Email: admin@apextrade.com<br />
+              Password: admin123456
+            </p>
+          </div>
         </div>
 
         {/* Mobile bottom spacing */}

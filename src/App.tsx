@@ -1,6 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+
+// Auth Context
+import { AuthProvider } from './contexts/AuthContext'
 
 // Auth Pages
 import SignIn from './pages/SignIn'
@@ -60,77 +63,83 @@ import Settings from './pages/Settings'
 
 function App() {
   return (
-    <Router>
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
-      <Routes>
-        {/* Auth Routes */}
-        <Route path="/" element={<SignIn />} />
-
-        {/* Super Admin Routes */}
-        <Route path="/superadmin/dashboard" element={<SuperAdminLayout><SuperAdminDashboard /></SuperAdminLayout>} />
-        <Route path="/superadmin/market-watch" element={<SuperAdminLayout><MarketWatch /></SuperAdminLayout>} />
-        <Route path="/superadmin/summary" element={<SuperAdminLayout><Summary /></SuperAdminLayout>} />
-        <Route path="/superadmin/exposure-summary" element={<SuperAdminLayout><ExposureSummary /></SuperAdminLayout>} />
+    <AuthProvider>
+      <Router>
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
         
-        {/* Super Admin Trading Routes */}
-        <Route path="/superadmin/trading/trades" element={<SuperAdminLayout><Trades /></SuperAdminLayout>} />
-        <Route path="/superadmin/trading/position" element={<SuperAdminLayout><Position /></SuperAdminLayout>} />
-        <Route path="/superadmin/trading/margin-management" element={<SuperAdminLayout><MarginManagement /></SuperAdminLayout>} />
-        <Route path="/superadmin/trading/manual-trade" element={<SuperAdminLayout><ManualTrade /></SuperAdminLayout>} />
-
-        {/* Super Admin Forex Routes */}
-        <Route path="/superadmin/forex/trade" element={<SuperAdminLayout><ForexTrade /></SuperAdminLayout>} />
-        <Route path="/superadmin/forex/position" element={<SuperAdminLayout><ForexPosition /></SuperAdminLayout>} />
-        <Route path="/superadmin/forex/summary" element={<SuperAdminLayout><ForexSummary /></SuperAdminLayout>} />
-        <Route path="/superadmin/forex/margin-management" element={<SuperAdminLayout><ForexMarginManagement /></SuperAdminLayout>} />
-
-        {/* Super Admin Users Routes */}
-        <Route path="/superadmin/users/customer" element={<SuperAdminLayout><Customer /></SuperAdminLayout>} />
-        <Route path="/superadmin/users/master" element={<SuperAdminLayout><Master /></SuperAdminLayout>} />
-        <Route path="/superadmin/users/dealer" element={<SuperAdminLayout><Dealer /></SuperAdminLayout>} />
-        <Route path="/superadmin/users/broker" element={<SuperAdminLayout><Broker /></SuperAdminLayout>} />
-        <Route path="/superadmin/users/new-account" element={<SuperAdminLayout><NewAccount /></SuperAdminLayout>} />
-
-        {/* Super Admin Utilities Routes */}
-        <Route path="/superadmin/utilities/trade-logs" element={<SuperAdminLayout><TradeLogs /></SuperAdminLayout>} />
-        <Route path="/superadmin/utilities/user-edit-log" element={<SuperAdminLayout><UserEditLog /></SuperAdminLayout>} />
-        <Route path="/superadmin/utilities/deposit-ledger" element={<SuperAdminLayout><DepositLedger /></SuperAdminLayout>} />
-        <Route path="/superadmin/utilities/cash-ledger-log" element={<SuperAdminLayout><CashLedgerLog /></SuperAdminLayout>} />
-        <Route path="/superadmin/utilities/rejection-log" element={<SuperAdminLayout><RejectionLog /></SuperAdminLayout>} />
-        <Route path="/superadmin/utilities/auto-square-off" element={<SuperAdminLayout><AutoSquareOff /></SuperAdminLayout>} />
-        <Route path="/superadmin/utilities/bulk-trading" element={<SuperAdminLayout><BulkTrading /></SuperAdminLayout>} />
-
-        {/* Super Admin Accounts Routes */}
-        <Route path="/superadmin/accounts/ledger" element={<SuperAdminLayout><Ledger /></SuperAdminLayout>} />
-        <Route path="/superadmin/accounts/cash-ledger" element={<SuperAdminLayout><CashLedger /></SuperAdminLayout>} />
-        <Route path="/superadmin/accounts/cash-entry" element={<SuperAdminLayout><CashEntry /></SuperAdminLayout>} />
-        <Route path="/superadmin/accounts/deposit-ledger" element={<SuperAdminLayout><AccountsDepositLedger /></SuperAdminLayout>} />
-        <Route path="/superadmin/accounts/deposit-entry" element={<SuperAdminLayout><DepositEntry /></SuperAdminLayout>} />
-        <Route path="/superadmin/accounts/jv" element={<SuperAdminLayout><JV /></SuperAdminLayout>} />
-        <Route path="/superadmin/accounts/jv-ledger" element={<SuperAdminLayout><JVLedger /></SuperAdminLayout>} />
-
-        {/* Super Admin Reports Routes */}
-        <Route path="/superadmin/reports/trade-report" element={<SuperAdminLayout><TradeReport /></SuperAdminLayout>} />
-        <Route path="/superadmin/reports/profit-loss" element={<SuperAdminLayout><ProfitLoss /></SuperAdminLayout>} />
-
-        {/* Super Admin Settings Route */}
-        <Route path="/superadmin/settings" element={<SuperAdminLayout><Settings /></SuperAdminLayout>} />
-
-        {/* Redirect */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/signin" element={<SignIn />} />
+          
+          {/* Protected Routes */}
+          <Route path="/" element={<SuperAdminLayout><Outlet /></SuperAdminLayout>}>
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<SuperAdminDashboard />} />
+            <Route path="market-watch" element={<MarketWatch />} />
+            <Route path="summary" element={<Summary />} />
+            <Route path="exposure-summary" element={<ExposureSummary />} />
+            
+            {/* Trading Routes */}
+            <Route path="trading/trades" element={<Trades />} />
+            <Route path="trading/position" element={<Position />} />
+            <Route path="trading/margin-management" element={<MarginManagement />} />
+            <Route path="trading/manual-trade" element={<ManualTrade />} />
+            
+            {/* Forex Routes */}
+            <Route path="forex/trade" element={<ForexTrade />} />
+            <Route path="forex/position" element={<ForexPosition />} />
+            <Route path="forex/summary" element={<ForexSummary />} />
+            <Route path="forex/margin-management" element={<ForexMarginManagement />} />
+            
+            {/* Users Routes */}
+            <Route path="users/customer" element={<Customer />} />
+            <Route path="users/master" element={<Master />} />
+            <Route path="users/dealer" element={<Dealer />} />
+            <Route path="users/broker" element={<Broker />} />
+            <Route path="users/new-account" element={<NewAccount />} />
+            
+            {/* Utilities Routes */}
+            <Route path="utilities/trade-logs" element={<TradeLogs />} />
+            <Route path="utilities/user-edit-log" element={<UserEditLog />} />
+            <Route path="utilities/deposit-ledger" element={<DepositLedger />} />
+            <Route path="utilities/cash-ledger-log" element={<CashLedgerLog />} />
+            <Route path="utilities/rejection-log" element={<RejectionLog />} />
+            <Route path="utilities/auto-square-off" element={<AutoSquareOff />} />
+            <Route path="utilities/bulk-trading" element={<BulkTrading />} />
+            
+            {/* Accounts Routes */}
+            <Route path="accounts/ledger" element={<Ledger />} />
+            <Route path="accounts/cash-ledger" element={<CashLedger />} />
+            <Route path="accounts/cash-entry" element={<CashEntry />} />
+            <Route path="accounts/deposit-ledger" element={<AccountsDepositLedger />} />
+            <Route path="accounts/deposit-entry" element={<DepositEntry />} />
+            <Route path="accounts/jv" element={<JV />} />
+            <Route path="accounts/jv-ledger" element={<JVLedger />} />
+            
+            {/* Reports Routes */}
+            <Route path="reports/trade-report" element={<TradeReport />} />
+            <Route path="reports/profit-loss" element={<ProfitLoss />} />
+            
+            {/* Settings Route */}
+            <Route path="settings" element={<Settings />} />
+          </Route>
+          
+          {/* Catch all route */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   )
 }
 

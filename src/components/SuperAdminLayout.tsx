@@ -41,91 +41,91 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
 
   // Auto-expand Trading menu if on a trading page
   useEffect(() => {
-    if (location.pathname.startsWith('/superadmin/trading')) {
+    if (location.pathname.startsWith('/trading')) {
       setTradingOpen(true)
     }
-    if (location.pathname.startsWith('/superadmin/forex')) {
+    if (location.pathname.startsWith('/forex')) {
       setForexOpen(true)
     }
-    if (location.pathname.startsWith('/superadmin/users')) {
+    if (location.pathname.startsWith('/users')) {
       setUsersOpen(true)
     }
-    if (location.pathname.startsWith('/superadmin/utilities')) {
+    if (location.pathname.startsWith('/utilities')) {
       setUtilitiesOpen(true)
     }
-    if (location.pathname.startsWith('/superadmin/accounts')) {
+    if (location.pathname.startsWith('/accounts')) {
       setAccountsOpen(true)
     }
-    if (location.pathname.startsWith('/superadmin/reports')) {
+    if (location.pathname.startsWith('/reports')) {
       setReportsOpen(true)
     }
   }, [location.pathname])
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/superadmin/dashboard' },
-    { icon: TrendingUp, label: 'Market Watch', path: '/superadmin/market-watch' },
-    { icon: PieChart, label: 'Summary', path: '/superadmin/summary' },
-    { icon: Gauge, label: 'Exposure summary', path: '/superadmin/exposure-summary' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+    { icon: TrendingUp, label: 'Market Watch', path: '/market-watch' },
+    { icon: PieChart, label: 'Summary', path: '/summary' },
+    { icon: Gauge, label: 'Exposure summary', path: '/exposure-summary' },
   ]
 
   const tradingSubItems = [
-    { icon: BarChart3, label: 'Trades', path: '/superadmin/trading/trades' },
-    { icon: Target, label: 'Position', path: '/superadmin/trading/position' },
-    { icon: Calculator, label: 'Margin Mngmnt', path: '/superadmin/trading/margin-management' },
-    { icon: Edit3, label: 'Manual trade', path: '/superadmin/trading/manual-trade' },
+    { icon: BarChart3, label: 'Trades', path: '/trading/trades' },
+    { icon: Target, label: 'Position', path: '/trading/position' },
+    { icon: Calculator, label: 'Margin Mngmnt', path: '/trading/margin-management' },
+    { icon: Edit3, label: 'Manual trade', path: '/trading/manual-trade' },
   ]
 
   const forexSubItems = [
-    { icon: BarChart3, label: 'Trade', path: '/superadmin/forex/trade' },
-    { icon: Target, label: 'Position', path: '/superadmin/forex/position' },
-    { icon: PieChart, label: 'Summary', path: '/superadmin/forex/summary' },
-    { icon: Calculator, label: 'Margin mngmnt', path: '/superadmin/forex/margin-management' },
+    { icon: BarChart3, label: 'Trade', path: '/forex/trade' },
+    { icon: Target, label: 'Position', path: '/forex/position' },
+    { icon: PieChart, label: 'Summary', path: '/forex/summary' },
+    { icon: Calculator, label: 'Margin mngmnt', path: '/forex/margin-management' },
   ]
 
   const usersSubItems = [
-    { icon: Users, label: 'Customer', path: '/superadmin/users/customer' },
-    { icon: Users, label: 'Master', path: '/superadmin/users/master' },
-    { icon: Users, label: 'Dealer', path: '/superadmin/users/dealer' },
-    { icon: Users, label: 'Broker', path: '/superadmin/users/broker' },
-    { icon: Users, label: 'New account', path: '/superadmin/users/new-account' },
+    { icon: Users, label: 'Customer', path: '/users/customer' },
+    { icon: Users, label: 'Master', path: '/users/master' },
+    { icon: Users, label: 'Dealer', path: '/users/dealer' },
+    { icon: Users, label: 'Broker', path: '/users/broker' },
+    { icon: Users, label: 'New account', path: '/users/new-account' },
   ]
 
   const utilitiesSubItems = [
-    { icon: FileText, label: 'Trade logs', path: '/superadmin/utilities/trade-logs' },
-    { icon: FileText, label: 'User edit log', path: '/superadmin/utilities/user-edit-log' },
-    { icon: FileText, label: 'Deposit ledger', path: '/superadmin/utilities/deposit-ledger' },
-    { icon: FileText, label: 'Cash ledger log', path: '/superadmin/utilities/cash-ledger-log' },
-    { icon: FileText, label: 'Rejection log', path: '/superadmin/utilities/rejection-log' },
-    { icon: FileText, label: 'Auto-square off', path: '/superadmin/utilities/auto-square-off' },
-    { icon: FileText, label: 'Bulk-trading', path: '/superadmin/utilities/bulk-trading' },
+    { icon: FileText, label: 'Trade logs', path: '/utilities/trade-logs' },
+    { icon: FileText, label: 'User edit log', path: '/utilities/user-edit-log' },
+    { icon: FileText, label: 'Deposit ledger', path: '/utilities/deposit-ledger' },
+    { icon: FileText, label: 'Cash ledger log', path: '/utilities/cash-ledger-log' },
+    { icon: FileText, label: 'Rejection log', path: '/utilities/rejection-log' },
+    { icon: FileText, label: 'Auto-square off', path: '/utilities/auto-square-off' },
+    { icon: FileText, label: 'Bulk-trading', path: '/utilities/bulk-trading' },
   ]
 
   const accountsSubItems = [
-    { icon: DollarSign, label: 'Ledger', path: '/superadmin/accounts/ledger' },
-    { icon: DollarSign, label: 'Cash ledger', path: '/superadmin/accounts/cash-ledger' },
-    { icon: DollarSign, label: 'Cash entry', path: '/superadmin/accounts/cash-entry' },
-    { icon: DollarSign, label: 'Deposit ledger', path: '/superadmin/accounts/deposit-ledger' },
-    { icon: DollarSign, label: 'Deposit entry', path: '/superadmin/accounts/deposit-entry' },
-    { icon: DollarSign, label: 'JV', path: '/superadmin/accounts/jv' },
-    { icon: DollarSign, label: 'JV ledger', path: '/superadmin/accounts/jv-ledger' },
+    { icon: DollarSign, label: 'Ledger', path: '/accounts/ledger' },
+    { icon: DollarSign, label: 'Cash ledger', path: '/accounts/cash-ledger' },
+    { icon: DollarSign, label: 'Cash entry', path: '/accounts/cash-entry' },
+    { icon: DollarSign, label: 'Deposit ledger', path: '/accounts/deposit-ledger' },
+    { icon: DollarSign, label: 'Deposit entry', path: '/accounts/deposit-entry' },
+    { icon: DollarSign, label: 'JV', path: '/accounts/jv' },
+    { icon: DollarSign, label: 'JV ledger', path: '/accounts/jv-ledger' },
   ]
 
   const reportsSubItems = [
-    { icon: FileText, label: 'Trade Report', path: '/superadmin/reports/trade-report' },
-    { icon: FileText, label: 'Profit loss %', path: '/superadmin/reports/profit-loss' },
+    { icon: FileText, label: 'Trade Report', path: '/reports/trade-report' },
+    { icon: FileText, label: 'Profit loss %', path: '/reports/profit-loss' },
   ]
 
   const bottomMenuItems = [
-    { icon: SettingsIcon, label: 'Settings', path: '/superadmin/settings' },
+    { icon: SettingsIcon, label: 'Settings', path: '/settings' },
   ]
 
   const isActive = (path: string) => location.pathname === path
-  const isTradingActive = () => location.pathname.startsWith('/superadmin/trading')
-  const isForexActive = () => location.pathname.startsWith('/superadmin/forex')
-  const isUsersActive = () => location.pathname.startsWith('/superadmin/users')
-  const isUtilitiesActive = () => location.pathname.startsWith('/superadmin/utilities')
-  const isAccountsActive = () => location.pathname.startsWith('/superadmin/accounts')
-  const isReportsActive = () => location.pathname.startsWith('/superadmin/reports')
+  const isTradingActive = () => location.pathname.startsWith('/trading')
+  const isForexActive = () => location.pathname.startsWith('/forex')
+  const isUsersActive = () => location.pathname.startsWith('/users')
+  const isUtilitiesActive = () => location.pathname.startsWith('/utilities')
+  const isAccountsActive = () => location.pathname.startsWith('/accounts')
+  const isReportsActive = () => location.pathname.startsWith('/reports')
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white">

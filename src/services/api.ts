@@ -1,10 +1,8 @@
 import axios from 'axios';
 
-// API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
-const WS_BASE_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:5001';
+// Base API configuration
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
-// Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
@@ -27,252 +25,328 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
+// Response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
       localStorage.removeItem('superadmin_token');
-      window.location.href = '/login';
+      window.location.href = '/signin';
     }
     return Promise.reject(error);
   }
 );
 
-// Auth API
-export const authAPI = {
+// ============ AUTHENTICATION ============
+
+export const authApi = {
   login: (credentials: { email: string; password: string }) =>
     api.post('/auth/login', credentials),
   
-  logout: () => api.post('/auth/logout'),
+  logout: () =>
+    api.post('/auth/logout'),
   
-  refreshToken: () => api.post('/auth/refresh'),
+  refreshToken: (refreshToken: string) =>
+    api.post('/auth/refresh-token', { refreshToken }),
+  
+  getProfile: () =>
+    api.get('/auth/profile'),
 };
 
-// Dashboard API
-export const dashboardAPI = {
-  getDashboard: () => api.get('/superadmin/dashboard'),
+// ============ DASHBOARD & MARKET WATCH ============
+
+export const dashboardApi = {
+  getDashboard: () =>
+    api.get('/superadmin/dashboard'),
   
-  getMarketWatch: (segment: string) => 
-    api.get(`/superadmin/market-watch/${segment}`),
+  getMarketWatch: (segment: string, params?: {
+    search?: string;
+    limit?: number;
+    page?: number;
+  }) =>
+    api.get(`/superadmin/market-watch/${segment}`, { params }),
   
-  addInstruments: (data: { segmentId: string; symbols: string[] }) =>
-    api.post('/superadmin/market-watch/instruments', data),
-  
-  removeInstrument: (instrumentId: string) =>
-    api.delete(`/superadmin/market-watch/instruments/${instrumentId}`),
+  addInstruments: (data: {
+    segmentId: string;
+    symbols: string[];
+  }) =>
+    api.post('/superadmin/instruments', data),
 };
 
-// User Management API
-export const userAPI = {
-  getMasters: (params?: any) => 
-    api.get('/superadmin/users/masters', { params }),
+// ============ USER MANAGEMENT ============
+
+export const userApi = {
+  getUsers: (params?: {
+    role?: string;
+    status?: string;
+    parentId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/users', { params }),
   
-  getBrokers: (params?: any) => 
-    api.get('/superadmin/users/brokers', { params }),
+  createUser: (userData: {
+    username: string;
+    email: string;
+    password: string;
+    role: string;
+    parentId?: string;
+    balance?: number;
+    permissions?: object;
+  }) =>
+    api.post('/superadmin/users', userData),
   
-  getCustomers: (params?: any) => 
-    api.get('/superadmin/users/customers', { params }),
+  updateUser: (id: string, updateData: {
+    username?: string;
+    email?: string;
+    role?: string;
+    status?: string;
+    permissions?: object;
+  }) =>
+    api.put(`/superadmin/users/${id}`, updateData),
   
-  createUser: (userData: any) =>
-    api.post('/superadmin/users/create', userData),
-  
-  updateUser: (userId: string, userData: any) =>
-    api.put(`/superadmin/users/${userId}`, userData),
-  
-  adjustBalance: (userId: string, data: { type: 'credit' | 'debit'; amount: number; description: string }) =>
-    api.post(`/superadmin/users/${userId}/balance`, data),
+  adjustBalance: (id: string, data: {
+    amount: number;
+    type: 'CREDIT' | 'DEBIT';
+    reason: string;
+  }) =>
+    api.post(`/superadmin/users/${id}/balance`, data),
 };
 
-// Trading API
-export const tradingAPI = {
-  getPositions: (params?: any) => 
-    api.get('/superadmin/trading/positions', { params }),
+// ============ TRADING MANAGEMENT ============
+
+export const tradingApi = {
+  getAllTrades: (params?: {
+    userId?: string;
+    segmentId?: string;
+    instrumentId?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/trades', { params }),
   
-  getTrades: (params?: any) => 
-    api.get('/superadmin/trading/trades', { params }),
+  getAllPositions: (params?: {
+    userId?: string;
+    segmentId?: string;
+    instrumentId?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/positions', { params }),
   
-  executeManualTrade: (tradeData: any) =>
-    api.post('/superadmin/trading/manual-trade', tradeData),
+  executeManualTrade: (data: {
+    userId: string;
+    instrumentId: string;
+    side: 'BUY' | 'SELL';
+    quantity: number;
+    price?: number;
+    orderType?: string;
+    reason: string;
+  }) =>
+    api.post('/superadmin/trades/manual', data),
   
-  exitPosition: (data: { positionId: string; quantity?: number }) =>
-    api.post('/superadmin/trading/exit-position', data),
-  
-  rolloverPosition: (data: { positionId: string; newInstrumentId: string }) =>
-    api.post('/superadmin/trading/rollover', data),
+  closePosition: (id: string, data: {
+    quantity?: number;
+    price?: number;
+    reason: string;
+  }) =>
+    api.post(`/superadmin/positions/${id}/close`, data),
 };
 
-// Forex API
-export const forexAPI = {
-  getPositions: (params?: any) => 
-    api.get('/superadmin/forex/positions', { params }),
-  
-  getTrades: (params?: any) => 
+// ============ FOREX MANAGEMENT ============
+
+export const forexApi = {
+  getForexTrades: (params?: {
+    userId?: string;
+    currencyPair?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) =>
     api.get('/superadmin/forex/trades', { params }),
   
-  getSummary: () => 
-    api.get('/superadmin/forex/summary'),
+  getForexPositions: (params?: {
+    userId?: string;
+    currencyPair?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/forex/positions', { params }),
   
-  updateMarginManagement: (data: any) =>
-    api.put('/superadmin/forex/margin-management', data),
+  updateFxRates: (data: {
+    rates: Array<{
+      pair: string;
+      rate: number;
+      source?: string;
+    }>;
+  }) =>
+    api.put('/superadmin/forex/rates', data),
 };
 
-// Reports API
-export const reportsAPI = {
-  getSummary: (params?: any) => 
+// ============ SUMMARY & EXPOSURE ============
+
+export const summaryApi = {
+  getTradingSummary: (params?: {
+    segment?: string;
+    startDate?: string;
+    endDate?: string;
+  }) =>
     api.get('/superadmin/summary', { params }),
   
-  getExposureSummary: (params?: any) => 
-    api.get('/superadmin/exposure-summary', { params }),
-  
-  getProfitLossReport: (params?: any) => 
-    api.get('/superadmin/reports/profit-loss', { params }),
-  
-  getTradeReport: (params?: any) => 
-    api.get('/superadmin/reports/trades', { params }),
+  getExposureSummary: (params?: {
+    segment?: string;
+    userId?: string;
+  }) =>
+    api.get('/superadmin/exposure', { params }),
 };
 
-// Accounts API
-export const accountsAPI = {
-  createCashEntry: (data: any) =>
-    api.post('/superadmin/accounts/cash-entry', data),
+// ============ ACCOUNTING & LEDGER ============
+
+export const accountingApi = {
+  getLedgerEntries: (params?: {
+    userId?: string;
+    category?: string;
+    type?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/ledger', { params }),
   
-  getCashLedger: (params?: any) => 
-    api.get('/superadmin/accounts/cash-ledger', { params }),
+  createCashEntry: (data: {
+    userId: string;
+    amount: number;
+    type: 'CREDIT' | 'DEBIT';
+    description: string;
+    reference?: string;
+  }) =>
+    api.post('/superadmin/cash-entry', data),
   
-  createDepositEntry: (data: any) =>
-    api.post('/superadmin/accounts/deposit-entry', data),
-  
-  getDepositLedger: (params?: any) => 
-    api.get('/superadmin/accounts/deposit-ledger', { params }),
-  
-  createJournalVoucher: (data: any) =>
-    api.post('/superadmin/accounts/journal-voucher', data),
-  
-  getJVLedger: (params?: any) => 
-    api.get('/superadmin/accounts/jv-ledger', { params }),
-  
-  getLedger: (params?: any) => 
-    api.get('/superadmin/accounts/ledger', { params }),
+  createJournalVoucher: (data: {
+    entries: Array<{
+      userId: string;
+      amount: number;
+      type: 'CREDIT' | 'DEBIT';
+      description: string;
+    }>;
+    description: string;
+    reference?: string;
+  }) =>
+    api.post('/superadmin/journal-voucher', data),
 };
 
-// Utilities API
-export const utilitiesAPI = {
-  getAutoSquareOffSettings: () => 
-    api.get('/superadmin/utilities/auto-square-off'),
+// ============ REPORTS ============
+
+export const reportsApi = {
+  generateTradeReport: (params?: {
+    userId?: string;
+    segmentId?: string;
+    startDate?: string;
+    endDate?: string;
+    format?: 'json' | 'excel' | 'pdf';
+  }) =>
+    api.get('/superadmin/reports/trades', { 
+      params,
+      responseType: params?.format && params.format !== 'json' ? 'blob' : 'json'
+    }),
   
-  updateAutoSquareOffSettings: (data: any) =>
-    api.put('/superadmin/utilities/auto-square-off', data),
-  
-  executeBulkTrades: (data: { trades: any[] }) =>
-    api.post('/superadmin/utilities/bulk-trading', data),
-  
-  getTradeLogs: (params?: any) => 
-    api.get('/superadmin/utilities/trade-logs', { params }),
-  
-  getRejectionLogs: (params?: any) => 
-    api.get('/superadmin/utilities/rejection-logs', { params }),
-  
-  getUserEditLogs: (params?: any) => 
-    api.get('/superadmin/utilities/user-edit-logs', { params }),
-  
-  getCashLedgerLogs: (params?: any) => 
-    api.get('/superadmin/utilities/cash-ledger-logs', { params }),
+  generatePnLReport: (params?: {
+    userId?: string;
+    segmentId?: string;
+    startDate?: string;
+    endDate?: string;
+    format?: 'json' | 'excel' | 'pdf';
+  }) =>
+    api.get('/superadmin/reports/pnl', { 
+      params,
+      responseType: params?.format && params.format !== 'json' ? 'blob' : 'json'
+    }),
 };
 
-// Settings API
-export const settingsAPI = {
-  getSettings: (params?: any) => 
-    api.get('/superadmin/settings', { params }),
+// ============ UTILITIES ============
+
+export const utilityApi = {
+  getTradeLogs: (params?: {
+    userId?: string;
+    action?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/logs/trades', { params }),
   
-  updateSettings: (data: { key: string; value: any }) =>
-    api.put('/superadmin/settings', data),
+  getUserEditLogs: (params?: {
+    userId?: string;
+    editedBy?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/logs/user-edits', { params }),
+  
+  configureAutoSquareOff: (data: {
+    segmentId: string;
+    enabled: boolean;
+    time?: string;
+    marginThreshold?: number;
+    lossThreshold?: number;
+  }) =>
+    api.post('/superadmin/auto-square-off', data),
 };
 
-// WebSocket connection for real-time data
-export class SuperAdminWebSocket {
+// ============ WEBSOCKET CONNECTION ============
+
+export class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectInterval = 5000;
+  private subscriptions = new Set<string>();
 
   connect() {
     const token = localStorage.getItem('superadmin_token');
-    if (!token) {
-      console.error('No auth token found for WebSocket connection');
-      return;
-    }
+    if (!token) return;
 
-    try {
-      this.ws = new WebSocket(`${WS_BASE_URL}/ws?token=${token}`);
-      
-      this.ws.onopen = () => {
-        console.log('SuperAdmin WebSocket connected');
-        this.reconnectAttempts = 0;
-      };
-      
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          this.handleMessage(data);
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-      
-      this.ws.onclose = () => {
-        console.log('SuperAdmin WebSocket disconnected');
-        this.attemptReconnect();
-      };
-      
-      this.ws.onerror = (error) => {
-        console.error('SuperAdmin WebSocket error:', error);
-      };
-    } catch (error) {
-      console.error('Error creating WebSocket connection:', error);
-    }
-  }
+    const wsUrl = `${import.meta.env.VITE_WS_URL || 'ws://localhost:5001'}/ws?token=${token}`;
+    
+    this.ws = new WebSocket(wsUrl);
 
-  private attemptReconnect() {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      console.log(`Attempting to reconnect WebSocket (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    this.ws.onopen = () => {
+      console.log('WebSocket connected');
+      this.reconnectAttempts = 0;
       
-      setTimeout(() => {
-        this.connect();
-      }, this.reconnectInterval);
-    } else {
-      console.error('Max WebSocket reconnection attempts reached');
-    }
-  }
+      // Resubscribe to previous subscriptions
+      this.subscriptions.forEach(subscription => {
+        this.subscribe(subscription);
+      });
+    };
 
-  private handleMessage(data: any) {
-    // Handle different types of real-time updates
-    switch (data.type) {
-      case 'MARKET_DATA':
-        // Update market watch data
-        window.dispatchEvent(new CustomEvent('marketDataUpdate', { detail: data.payload }));
-        break;
-      
-      case 'TRADE_UPDATE':
-        // Update trade data
-        window.dispatchEvent(new CustomEvent('tradeUpdate', { detail: data.payload }));
-        break;
-      
-      case 'POSITION_UPDATE':
-        // Update position data
-        window.dispatchEvent(new CustomEvent('positionUpdate', { detail: data.payload }));
-        break;
-      
-      case 'USER_UPDATE':
-        // Update user data
-        window.dispatchEvent(new CustomEvent('userUpdate', { detail: data.payload }));
-        break;
-      
-      default:
-        console.log('Unknown WebSocket message type:', data.type);
-    }
+    this.ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        this.handleMessage(data);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+
+    this.ws.onclose = () => {
+      console.log('WebSocket disconnected');
+      this.attemptReconnect();
+    };
+
+    this.ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
   }
 
   disconnect() {
@@ -280,16 +354,86 @@ export class SuperAdminWebSocket {
       this.ws.close();
       this.ws = null;
     }
+    this.subscriptions.clear();
   }
 
-  send(data: any) {
+  subscribe(channel: string) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
-    } else {
-      console.error('WebSocket is not connected');
+      this.ws.send(JSON.stringify({
+        type: 'subscribe',
+        channel,
+      }));
+      this.subscriptions.add(channel);
     }
+  }
+
+  unsubscribe(channel: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'unsubscribe',
+        channel,
+      }));
+      this.subscriptions.delete(channel);
+    }
+  }
+
+  private attemptReconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      setTimeout(() => {
+        console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        this.connect();
+      }, this.reconnectInterval);
+    }
+  }
+
+  private handleMessage(data: any) {
+    // Emit custom events for different message types
+    const event = new CustomEvent(`ws-${data.type}`, {
+      detail: data,
+    });
+    window.dispatchEvent(event);
   }
 }
 
-// Export default api instance
+// Export singleton instance
+export const wsService = new WebSocketService();
+
+// ============ UTILITY FUNCTIONS ============
+
+export const downloadFile = (blob: Blob, filename: string) => {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
+export const formatCurrency = (amount: number, currency = 'INR') => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency,
+  }).format(amount);
+};
+
+export const formatNumber = (number: number, decimals = 2) => {
+  return new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(number);
+};
+
+export const formatDate = (date: string | Date) => {
+  return new Intl.DateTimeFormat('en-IN', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date));
+};
+
 export default api;

@@ -1,115 +1,235 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authAPI, SuperAdminWebSocket } from '@/services/api';
+import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { authApi, wsService } from '../services/api';
+import { toast } from 'react-toastify';
 
+// Types
 interface User {
   id: string;
+  username: string;
   email: string;
-  firstName: string;
-  lastName: string;
   role: string;
+  permissions: {
+    canTrade: boolean;
+    canCreateUsers: boolean;
+    canCreditDebit: boolean;
+    canBanScripts: boolean;
+    canOverrideMargins: boolean;
+    canOverrideLimits: boolean;
+    canViewReports: boolean;
+    canManageSystem: boolean;
+  };
+  createdAt: string;
+  lastLoginAt?: string;
 }
 
-interface AuthContextType {
+interface AuthState {
   user: User | null;
   token: string | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  isLoading: boolean;
   isAuthenticated: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-interface AuthProviderProps {
-  children: ReactNode;
+interface AuthContextType extends AuthState {
+  login: (credentials: { email: string; password: string }) => Promise<void>;
+  logout: () => void;
+  refreshToken: () => Promise<void>;
 }
 
-export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [wsConnection, setWsConnection] = useState<SuperAdminWebSocket | null>(null);
+// Initial state
+const initialState: AuthState = {
+  user: null,
+  token: localStorage.getItem('superadmin_token'),
+  isLoading: true,
+  isAuthenticated: false,
+};
 
+// Action types
+type AuthAction =
+  | { type: 'LOGIN_START' }
+  | { type: 'LOGIN_SUCCESS'; payload: { user: User; token: string } }
+  | { type: 'LOGIN_FAILURE' }
+  | { type: 'LOGOUT' }
+  | { type: 'REFRESH_TOKEN_SUCCESS'; payload: { user: User; token: string } }
+  | { type: 'SET_LOADING'; payload: boolean };
+
+// Reducer
+const authReducer = (state: AuthState, action: AuthAction): AuthState => {
+  switch (action.type) {
+    case 'LOGIN_START':
+      return {
+        ...state,
+        isLoading: true,
+      };
+    case 'LOGIN_SUCCESS':
+      return {
+        ...state,
+        user: action.payload.user,
+        token: action.payload.token,
+        isLoading: false,
+        isAuthenticated: true,
+      };
+    case 'LOGIN_FAILURE':
+      return {
+        ...state,
+        user: null,
+        token: null,
+        isLoading: false,
+        isAuthenticated: false,
+      };
+    case 'LOGOUT':
+      return {
+        ...state,
+        user: null,
+        token: null,
+        isLoading: false,
+        isAuthenticated: false,
+      };
+    case 'REFRESH_TOKEN_SUCCESS':
+      return {
+        ...state,
+        user: action.payload.user,
+        token: action.payload.token,
+        isLoading: false,
+        isAuthenticated: true,
+      };
+    case 'SET_LOADING':
+      return {
+        ...state,
+        isLoading: action.payload,
+      };
+    default:
+      return state;
+  }
+};
+
+// Create context
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Provider component
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [state, dispatch] = useReducer(authReducer, initialState);
+
+  // Initialize auth state on app load
   useEffect(() => {
-    // Check for existing token on mount
-    const savedToken = localStorage.getItem('superadmin_token');
-    const savedUser = localStorage.getItem('superadmin_user');
-
-    if (savedToken && savedUser) {
-      try {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-        
-        // Initialize WebSocket connection
-        const ws = new SuperAdminWebSocket();
-        ws.connect();
-        setWsConnection(ws);
-      } catch (error) {
-        console.error('Error parsing saved user data:', error);
-        localStorage.removeItem('superadmin_token');
-        localStorage.removeItem('superadmin_user');
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('superadmin_token');
+      
+      if (token) {
+        try {
+          const response = await authApi.getProfile();
+          dispatch({
+            type: 'LOGIN_SUCCESS',
+            payload: {
+              user: response.data.data.user,
+              token,
+            },
+          });
+          
+          // Connect WebSocket
+          wsService.connect();
+        } catch (error) {
+          console.error('Failed to initialize auth:', error);
+          localStorage.removeItem('superadmin_token');
+          dispatch({ type: 'LOGIN_FAILURE' });
+        }
+      } else {
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
-    }
-    
-    setLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  // Login function
+  const login = async (credentials: { email: string; password: string }) => {
     try {
-      setLoading(true);
-      const response = await authAPI.login({ email, password });
-      const { token: newToken, user: userData } = response.data.data;
-
-      // Validate user role
-      if (!['ADMIN', 'SUPER_MASTER'].includes(userData.role)) {
-        throw new Error('Insufficient permissions for super admin access');
+      dispatch({ type: 'LOGIN_START' });
+      
+      const response = await authApi.login(credentials);
+      const { user, accessToken } = response.data.data;
+      
+      // Validate user role - only ADMIN can access superadmin panel
+      if (user.role !== 'ADMIN') {
+        throw new Error('Access denied. Only administrators can access this panel.');
       }
-
-      setToken(newToken);
-      setUser(userData);
-
-      // Save to localStorage
-      localStorage.setItem('superadmin_token', newToken);
-      localStorage.setItem('superadmin_user', JSON.stringify(userData));
-
-      // Initialize WebSocket connection
-      const ws = new SuperAdminWebSocket();
-      ws.connect();
-      setWsConnection(ws);
-
+      
+      localStorage.setItem('superadmin_token', accessToken);
+      
+      dispatch({
+        type: 'LOGIN_SUCCESS',
+        payload: { user, token: accessToken },
+      });
+      
+      // Connect WebSocket
+      wsService.connect();
+      
+      toast.success(`Welcome back, ${user.firstName || user.email}!`);
     } catch (error: any) {
+      dispatch({ type: 'LOGIN_FAILURE' });
+      
       const errorMessage = error.response?.data?.message || error.message || 'Login failed';
-      throw new Error(errorMessage);
+      toast.error(errorMessage);
+      
+      throw error;
+    }
+  };
+
+  // Logout function
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
     } finally {
-      setLoading(false);
+      localStorage.removeItem('superadmin_token');
+      dispatch({ type: 'LOGOUT' });
+      
+      // Disconnect WebSocket
+      wsService.disconnect();
+      
+      toast.info('You have been logged out');
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    
-    // Disconnect WebSocket
-    if (wsConnection) {
-      wsConnection.disconnect();
-      setWsConnection(null);
+  // Refresh token function
+  const refreshToken = async () => {
+    try {
+      const storedRefreshToken = localStorage.getItem('superadmin_refresh_token');
+      if (!storedRefreshToken) {
+        throw new Error('No refresh token available');
+      }
+      
+      const response = await authApi.refreshToken(storedRefreshToken);
+      const { user, token } = response.data.data;
+      
+      localStorage.setItem('superadmin_token', token);
+      
+      dispatch({
+        type: 'REFRESH_TOKEN_SUCCESS',
+        payload: { user, token },
+      });
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      logout();
     }
-
-    // Clear localStorage
-    localStorage.removeItem('superadmin_token');
-    localStorage.removeItem('superadmin_user');
-
-    // Call logout API (optional, for server-side cleanup)
-    authAPI.logout().catch(console.error);
   };
+
+  // Auto refresh token every 15 minutes
+  useEffect(() => {
+    if (state.isAuthenticated) {
+      const interval = setInterval(() => {
+        refreshToken();
+      }, 15 * 60 * 1000); // 15 minutes
+
+      return () => clearInterval(interval);
+    }
+  }, [state.isAuthenticated]);
 
   const value: AuthContextType = {
-    user,
-    token,
-    loading,
+    ...state,
     login,
     logout,
-    isAuthenticated: !!user && !!token,
+    refreshToken,
   };
 
   return (
@@ -117,126 +237,59 @@ export function AuthProvider({ children }: AuthProviderProps) {
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
+// Hook to use auth context
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+};
 
-// Protected Route Component
-interface ProtectedRouteProps {
-  children: ReactNode;
-}
+// HOC for protected routes
+export const withAuth = <P extends object>(Component: React.ComponentType<P>) => {
+  return (props: P) => {
+    const { isAuthenticated, isLoading } = useAuth();
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+    if (isLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
         </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <LoginPage />;
-  }
-
-  return <>{children}</>;
-}
-
-// Simple Login Page Component
-function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    try {
-      await login(email, password);
-    } catch (error: any) {
-      setError(error.message);
-    } finally {
-      setIsLoading(false);
+      );
     }
+
+    if (!isAuthenticated) {
+      window.location.href = '/signin';
+      return null;
+    }
+
+    return <Component {...props} />;
   };
+};
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Super Admin Login
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in to access the super admin dashboard
-          </p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                'Sign in'
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
+// Permission checker hook
+export const usePermissions = () => {
+  const { user } = useAuth();
+  
+  const hasPermission = (permission: keyof User['permissions']) => {
+    return user?.permissions[permission] || false;
+  };
+  
+  const hasRole = (role: string) => {
+    return user?.role === role;
+  };
+  
+  const isAdmin = () => {
+    return user?.role === 'ADMIN';
+  };
+  
+  return {
+    hasPermission,
+    hasRole,
+    isAdmin,
+    permissions: user?.permissions,
+  };
+};

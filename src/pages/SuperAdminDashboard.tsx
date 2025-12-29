@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Plus, Grid3x3, ChevronDown } from 'lucide-react'
-import { dashboardAPI } from '@/services/api'
-import { useRealTimeData } from '@/hooks/useApi'
+import { Search, Plus, Grid3x3, ChevronDown, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
+import { dashboardApi, wsService } from '../services/api'
+import { useApi } from '../hooks/useApi'
+import { formatCurrency, formatNumber } from '../services/api'
+import { toast } from 'react-toastify'
 
 export default function SuperAdminDashboard() {
   const [selectedMarket, setSelectedMarket] = useState('NSE')
@@ -14,41 +16,77 @@ export default function SuperAdminDashboard() {
   const [selectedExpiry, setSelectedExpiry] = useState('')
   const [selectedCEPE, setSelectedCEPE] = useState('')
   const [selectedStrike, setSelectedStrike] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
 
   // Use real API data with real-time updates
-  const { data: dashboardData, loading: dashboardLoading } = useRealTimeData(
-    dashboardAPI.getDashboard,
-    'marketDataUpdate',
-    30000 // Refresh every 30 seconds
-  )
+  const { 
+    data: dashboardData, 
+    loading: dashboardLoading, 
+    execute: fetchDashboard 
+  } = useApi(dashboardApi.getDashboard, { immediate: true })
 
-  const { data: nseData, loading: nseLoading } = useRealTimeData(
-    () => dashboardAPI.getMarketWatch('NSE'),
-    'marketDataUpdate',
-    10000 // Refresh every 10 seconds
-  )
+  const { 
+    data: nseData, 
+    loading: nseLoading, 
+    execute: fetchNSE 
+  } = useApi(() => dashboardApi.getMarketWatch('NSE'), { immediate: true })
 
-  const { data: mcxData, loading: mcxLoading } = useRealTimeData(
-    () => dashboardAPI.getMarketWatch('MCX'),
-    'marketDataUpdate',
-    10000 // Refresh every 10 seconds
-  )
+  const { 
+    data: mcxData, 
+    loading: mcxLoading, 
+    execute: fetchMCX 
+  } = useApi(() => dashboardApi.getMarketWatch('MCX'), { immediate: true })
+
+  // WebSocket subscription for real-time updates
+  useEffect(() => {
+    const handleMarketUpdate = (event: CustomEvent) => {
+      const { segment } = event.detail
+      if (segment === 'NSE') {
+        fetchNSE()
+      } else if (segment === 'MCX') {
+        fetchMCX()
+      }
+    }
+
+    window.addEventListener('ws-market-update', handleMarketUpdate as EventListener)
+    
+    // Subscribe to market data updates
+    wsService.subscribe('market-data')
+
+    return () => {
+      window.removeEventListener('ws-market-update', handleMarketUpdate as EventListener)
+      wsService.unsubscribe('market-data')
+    }
+  }, [fetchNSE, fetchMCX])
 
   // Fallback data while loading
   const nseInstruments = nseData?.instruments || []
   const mcxInstruments = mcxData?.instruments || []
+  const stats = dashboardData?.stats || {}
 
   const handleAddExpiry = async () => {
     // TODO: Implement add expiry functionality
-    console.log('Add expiry clicked')
+    toast.info('Add expiry functionality coming soon')
   }
 
   const handleAddScripts = async () => {
     // TODO: Implement add scripts functionality
-    console.log('Add scripts clicked')
+    toast.info('Add scripts functionality coming soon')
   }
 
-  if (dashboardLoading) {
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await Promise.all([fetchDashboard(), fetchNSE(), fetchMCX()])
+      toast.success('Data refreshed successfully')
+    } catch (error) {
+      toast.error('Failed to refresh data')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  if (dashboardLoading && !dashboardData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -64,16 +102,33 @@ export default function SuperAdminDashboard() {
       {/* Header with Title, Search and Buttons */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between gap-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">SuperAdmin Dashboard</h1>
+            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+              <span>Users: {formatNumber(stats.totalUsers || 0, 0)}</span>
+              <span>Trades: {formatNumber(stats.totalTrades || 0, 0)}</span>
+              <span>Volume: {formatCurrency(stats.totalVolume || 0)}</span>
+              <span>Open Positions: {formatNumber(stats.openPositions || 0, 0)}</span>
+            </div>
+          </div>
           <div className="flex items-center gap-4">
             <div className="relative" style={{ width: '380px' }}>
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 type="text"
-                placeholder="Search"
+                placeholder="Search instruments..."
                 className="pl-10 h-10 bg-gray-50 border-gray-200 w-full"
               />
             </div>
+            <Button 
+              variant="outline" 
+              onClick={handleRefresh} 
+              disabled={refreshing}
+              className="h-10"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
             <Button className="bg-green-500 hover:bg-green-600 text-white text-sm px-4 h-10" onClick={handleAddExpiry}>
               <Plus className="w-4 h-4 mr-2" />
               Expiry
@@ -100,6 +155,8 @@ export default function SuperAdminDashboard() {
               <SelectItem value="NSE">NSE</SelectItem>
               <SelectItem value="MCX">MCX</SelectItem>
               <SelectItem value="BSE">BSE</SelectItem>
+              <SelectItem value="NCDEX">NCDEX</SelectItem>
+              <SelectItem value="FOREX">FOREX</SelectItem>
             </SelectContent>
           </Select>
 
@@ -110,6 +167,7 @@ export default function SuperAdminDashboard() {
             <SelectContent>
               <SelectItem value="nifty">NIFTY 500</SelectItem>
               <SelectItem value="banknifty">BANKNIFTY</SelectItem>
+              <SelectItem value="sensex">SENSEX</SelectItem>
             </SelectContent>
           </Select>
 
@@ -120,6 +178,7 @@ export default function SuperAdminDashboard() {
             <SelectContent>
               <SelectItem value="weekly">Weekly</SelectItem>
               <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="quarterly">Quarterly</SelectItem>
             </SelectContent>
           </Select>
 
@@ -128,8 +187,8 @@ export default function SuperAdminDashboard() {
               <SelectValue placeholder="CE/PE" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ce">CE</SelectItem>
-              <SelectItem value="pe">PE</SelectItem>
+              <SelectItem value="ce">CE (Call)</SelectItem>
+              <SelectItem value="pe">PE (Put)</SelectItem>
             </SelectContent>
           </Select>
 
@@ -140,6 +199,7 @@ export default function SuperAdminDashboard() {
             <SelectContent>
               <SelectItem value="25000">25000</SelectItem>
               <SelectItem value="25100">25100</SelectItem>
+              <SelectItem value="25200">25200</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -150,9 +210,15 @@ export default function SuperAdminDashboard() {
         {/* NSE Section */}
         <Card className="overflow-hidden">
           <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700">NSE</span>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-gray-700">NSE</span>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+                {nseLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>}
+              </div>
+              <span className="text-sm text-gray-500">
+                {nseInstruments.length} instruments
+              </span>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -163,44 +229,51 @@ export default function SuperAdminDashboard() {
                   <TableHead className="font-semibold text-gray-700 px-4 py-3">Bid</TableHead>
                   <TableHead className="font-semibold text-gray-700 px-4 py-3">Ask</TableHead>
                   <TableHead className="font-semibold text-gray-700 px-4 py-3">LTP</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Chg</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Net Chg</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Change</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Change %</TableHead>
                   <TableHead className="font-semibold text-gray-700 px-4 py-3">High</TableHead>
                   <TableHead className="font-semibold text-gray-700 px-4 py-3">Low</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Open</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Close</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Volume</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {nseLoading ? (
+                {nseLoading && nseInstruments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto mb-2"></div>
                       Loading NSE data...
                     </TableCell>
                   </TableRow>
                 ) : nseInstruments.length > 0 ? (
-                  nseInstruments.map((row: any, index: number) => (
-                    <TableRow key={index} className="hover:bg-gray-50">
-                      <TableCell className="font-medium px-4 py-3">{row.symbol}</TableCell>
-                      <TableCell className="px-4 py-3">{row.bidRate}</TableCell>
-                      <TableCell className="px-4 py-3">{row.askRate}</TableCell>
-                      <TableCell className="px-4 py-3">{row.ltp}</TableCell>
-                      <TableCell className={`px-4 py-3 ${parseFloat(row.change) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {row.change}
+                  nseInstruments.slice(0, 20).map((instrument: any, index: number) => (
+                    <TableRow key={instrument.id || index} className="hover:bg-gray-50">
+                      <TableCell className="font-medium px-4 py-3">{instrument.symbol}</TableCell>
+                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.bid || 0)}</TableCell>
+                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.ask || 0)}</TableCell>
+                      <TableCell className="px-4 py-3 font-semibold">{formatCurrency(instrument.currentPrice?.ltp || 0)}</TableCell>
+                      <TableCell className={`px-4 py-3 flex items-center ${
+                        (instrument.currentPrice?.change || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {(instrument.currentPrice?.change || 0) >= 0 ? (
+                          <TrendingUp className="w-3 h-3 mr-1" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3 mr-1" />
+                        )}
+                        {formatCurrency(instrument.currentPrice?.change || 0)}
                       </TableCell>
-                      <TableCell className={`px-4 py-3 ${parseFloat(row.netChange) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {row.netChange}
+                      <TableCell className={`px-4 py-3 ${
+                        (instrument.currentPrice?.changePercent || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {((instrument.currentPrice?.changePercent || 0) * 100).toFixed(2)}%
                       </TableCell>
-                      <TableCell className="px-4 py-3">{row.high}</TableCell>
-                      <TableCell className="px-4 py-3">{row.low}</TableCell>
-                      <TableCell className="px-4 py-3">{row.open}</TableCell>
-                      <TableCell className="px-4 py-3">{row.close}</TableCell>
+                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.high || 0)}</TableCell>
+                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.low || 0)}</TableCell>
+                      <TableCell className="px-4 py-3">{formatNumber(instrument.currentPrice?.volume || 0, 0)}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                       No NSE data available
                     </TableCell>
                   </TableRow>
@@ -213,9 +286,15 @@ export default function SuperAdminDashboard() {
         {/* MCX Section */}
         <Card className="overflow-hidden">
           <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700">MCX</span>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-gray-700">MCX</span>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+                {mcxLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>}
+              </div>
+              <span className="text-sm text-gray-500">
+                {mcxInstruments.length} instruments
+              </span>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -226,44 +305,51 @@ export default function SuperAdminDashboard() {
                   <TableHead className="font-semibold text-gray-700 px-4 py-3">Bid</TableHead>
                   <TableHead className="font-semibold text-gray-700 px-4 py-3">Ask</TableHead>
                   <TableHead className="font-semibold text-gray-700 px-4 py-3">LTP</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Chg</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Net Chg</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Change</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Change %</TableHead>
                   <TableHead className="font-semibold text-gray-700 px-4 py-3">High</TableHead>
                   <TableHead className="font-semibold text-gray-700 px-4 py-3">Low</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Open</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Close</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Volume</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mcxLoading ? (
+                {mcxLoading && mcxInstruments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto mb-2"></div>
                       Loading MCX data...
                     </TableCell>
                   </TableRow>
                 ) : mcxInstruments.length > 0 ? (
-                  mcxInstruments.map((row: any, index: number) => (
-                    <TableRow key={index} className="hover:bg-gray-50">
-                      <TableCell className="font-medium px-4 py-3">{row.symbol}</TableCell>
-                      <TableCell className="px-4 py-3">{row.bidRate}</TableCell>
-                      <TableCell className="px-4 py-3">{row.askRate}</TableCell>
-                      <TableCell className="px-4 py-3">{row.ltp}</TableCell>
-                      <TableCell className={`px-4 py-3 ${parseFloat(row.change) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {row.change}
+                  mcxInstruments.slice(0, 20).map((instrument: any, index: number) => (
+                    <TableRow key={instrument.id || index} className="hover:bg-gray-50">
+                      <TableCell className="font-medium px-4 py-3">{instrument.symbol}</TableCell>
+                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.bid || 0)}</TableCell>
+                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.ask || 0)}</TableCell>
+                      <TableCell className="px-4 py-3 font-semibold">{formatCurrency(instrument.currentPrice?.ltp || 0)}</TableCell>
+                      <TableCell className={`px-4 py-3 flex items-center ${
+                        (instrument.currentPrice?.change || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {(instrument.currentPrice?.change || 0) >= 0 ? (
+                          <TrendingUp className="w-3 h-3 mr-1" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3 mr-1" />
+                        )}
+                        {formatCurrency(instrument.currentPrice?.change || 0)}
                       </TableCell>
-                      <TableCell className={`px-4 py-3 ${parseFloat(row.netChange) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {row.netChange}
+                      <TableCell className={`px-4 py-3 ${
+                        (instrument.currentPrice?.changePercent || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {((instrument.currentPrice?.changePercent || 0) * 100).toFixed(2)}%
                       </TableCell>
-                      <TableCell className="px-4 py-3">{row.high}</TableCell>
-                      <TableCell className="px-4 py-3">{row.low}</TableCell>
-                      <TableCell className="px-4 py-3">{row.open}</TableCell>
-                      <TableCell className="px-4 py-3">{row.close}</TableCell>
+                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.high || 0)}</TableCell>
+                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.low || 0)}</TableCell>
+                      <TableCell className="px-4 py-3">{formatNumber(instrument.currentPrice?.volume || 0, 0)}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                       No MCX data available
                     </TableCell>
                   </TableRow>
