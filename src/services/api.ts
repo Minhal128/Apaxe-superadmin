@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base API configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -57,14 +57,70 @@ export const authApi = {
 
 export const dashboardApi = {
   getDashboard: () =>
-    api.get('/superadmin/dashboard'),
+    api.get('/test/dashboard'),
   
   getMarketWatch: (segment: string, params?: {
     search?: string;
     limit?: number;
     page?: number;
   }) =>
-    api.get(`/superadmin/market-watch/${segment}`, { params }),
+    api.get(`/market/segment/${segment}`, { params }),
+  
+  getMarketData: async (params?: {
+    segment?: string;
+    search?: string;
+    limit?: number;
+    page?: number;
+  }) => {
+    // Use the correct market endpoint that has live data
+    let url: URL;
+    
+    if (params?.segment && params.segment !== 'ALL') {
+      // Use segment-specific endpoint for filtered data
+      url = new URL(`/api/v1/market/segment/${params.segment}`, API_BASE_URL.replace('/api/v1', ''));
+    } else {
+      // Use general market endpoint for all data
+      url = new URL('/api/v1/market', API_BASE_URL.replace('/api/v1', ''));
+    }
+    
+    // Add other parameters if provided
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && key !== 'segment') {
+          url.searchParams.append(key, String(value));
+        }
+      });
+    }
+    
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const apiResponse = await response.json();
+    
+    // Handle different response formats
+    let instruments = [];
+    if (apiResponse.data) {
+      if (Array.isArray(apiResponse.data)) {
+        // Direct array from /market endpoint
+        instruments = apiResponse.data;
+      } else if (apiResponse.data.instruments) {
+        // Nested instruments from /market/segment endpoint
+        instruments = apiResponse.data.instruments;
+      }
+    }
+    
+    // Return in axios-like format expected by useApi hook
+    return { 
+      data: {
+        data: instruments
+      },
+      status: response.status,
+      statusText: response.statusText,
+      headers: {} as any,
+      config: {} as any
+    } as any;
+  },
   
   addInstruments: (data: {
     segmentId: string;
@@ -135,8 +191,18 @@ export const tradingApi = {
     status?: string;
     page?: number;
     limit?: number;
-  }) =>
-    api.get('/superadmin/positions', { params }),
+  }) => {
+    // Filter out empty string values to avoid validation errors
+    const cleanParams: Record<string, any> = {};
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== '' && value !== undefined && value !== null) {
+          cleanParams[key] = value;
+        }
+      });
+    }
+    return api.get('/superadmin/positions', { params: cleanParams });
+  },
   
   executeManualTrade: (data: {
     userId: string;

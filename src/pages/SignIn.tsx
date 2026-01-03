@@ -6,11 +6,19 @@ import { Eye, EyeOff } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../contexts/AuthContext'
 
+// Role options
+const ROLES = [
+  { value: 'ADMIN', label: 'Super Admin' },
+  { value: 'SUPER_MASTER', label: 'Admin' },
+  { value: 'MASTER', label: 'Master' },
+];
+
 export default function SignIn() {
   const navigate = useNavigate()
   const { login, isLoading } = useAuth()
-  const [email, setEmail] = useState('admin@apextrade.com')
-  const [password, setPassword] = useState('admin123456')
+  const [selectedRole, setSelectedRole] = useState('ADMIN')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -22,7 +30,7 @@ export default function SignIn() {
     }
     
     try {
-      await login({ email, password })
+      await login({ email, password, expectedRole: selectedRole })
       navigate('/dashboard')
     } catch (error) {
       // Error is already handled in AuthContext
@@ -70,6 +78,25 @@ export default function SignIn() {
                 className="h-10 sm:h-11 text-sm sm:text-base"
                 disabled={isLoading}
               />
+            </div>
+
+            {/* Role Selector Dropdown */}
+            <div>
+              <label className="block text-gray-700 text-xs sm:text-sm mb-2">
+                Select Role
+              </label>
+              <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="w-full h-10 sm:h-11 text-sm sm:text-base px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                disabled={isLoading}
+              >
+                {ROLES.map((role) => (
+                  <option key={role.value} value={role.value}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

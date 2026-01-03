@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,11 +11,12 @@ import { formatCurrency, formatNumber } from '../services/api'
 import { toast } from 'react-toastify'
 
 export default function SuperAdminDashboard() {
-  const [selectedMarket, setSelectedMarket] = useState('NSE')
+  const [selectedMarket, setSelectedMarket] = useState('CRYPTO')
   const [selectedScriptName, setSelectedScriptName] = useState('')
   const [selectedExpiry, setSelectedExpiry] = useState('')
   const [selectedCEPE, setSelectedCEPE] = useState('')
   const [selectedStrike, setSelectedStrike] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
   // Use real API data with real-time updates
@@ -26,26 +27,15 @@ export default function SuperAdminDashboard() {
   } = useApi(dashboardApi.getDashboard, { immediate: true })
 
   const { 
-    data: nseData, 
-    loading: nseLoading, 
-    execute: fetchNSE 
-  } = useApi(() => dashboardApi.getMarketWatch('NSE'), { immediate: true })
-
-  const { 
-    data: mcxData, 
-    loading: mcxLoading, 
-    execute: fetchMCX 
-  } = useApi(() => dashboardApi.getMarketWatch('MCX'), { immediate: true })
+    data: marketData, 
+    loading: marketLoading, 
+    execute: fetchMarketData 
+  } = useApi(() => dashboardApi.getMarketData(), { immediate: true })
 
   // WebSocket subscription for real-time updates
   useEffect(() => {
-    const handleMarketUpdate = (event: CustomEvent) => {
-      const { segment } = event.detail
-      if (segment === 'NSE') {
-        fetchNSE()
-      } else if (segment === 'MCX') {
-        fetchMCX()
-      }
+    const handleMarketUpdate = () => {
+      fetchMarketData()
     }
 
     window.addEventListener('ws-market-update', handleMarketUpdate as EventListener)
@@ -57,12 +47,50 @@ export default function SuperAdminDashboard() {
       window.removeEventListener('ws-market-update', handleMarketUpdate as EventListener)
       wsService.unsubscribe('market-data')
     }
-  }, [fetchNSE, fetchMCX])
+  }, []) // Remove fetchMarketData from deps - it's stable but we only want to set this up once
 
-  // Fallback data while loading
-  const nseInstruments = nseData?.instruments || []
-  const mcxInstruments = mcxData?.instruments || []
+  // Raw data from API
+  const allInstruments = marketData?.data || []
   const stats = dashboardData?.stats || {}
+
+  // Get unique values for filter dropdowns
+  const uniqueSymbols = useMemo(() => {
+    const symbols = allInstruments.map((inst: any) => inst.symbol).filter(Boolean)
+    return [...new Set(symbols)].sort()
+  }, [allInstruments])
+
+  // Apply filters to instruments
+  const applyFilters = (instruments: any[]) => {
+    let filtered = instruments
+    
+    // Filter by script name
+    if (selectedScriptName) {
+      filtered = filtered.filter((inst: any) => 
+        inst.symbol?.toLowerCase().includes(selectedScriptName.toLowerCase())
+      )
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter((inst: any) => 
+        inst.symbol?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inst.name?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+    
+    return filtered
+  }
+
+  // Filtered instruments by segment
+  const cryptoInstruments = useMemo(() => 
+    applyFilters(allInstruments.filter((inst: any) => (inst.segment?.name || inst.segment) === 'CRYPTO')), 
+    [allInstruments, selectedScriptName, searchQuery]
+  )
+  
+  const nseInstruments = useMemo(() => 
+    applyFilters(allInstruments.filter((inst: any) => (inst.segment?.name || inst.segment) === 'NSE')), 
+    [allInstruments, selectedScriptName, searchQuery]
+  )
 
   const handleAddExpiry = async () => {
     // TODO: Implement add expiry functionality
@@ -77,7 +105,7 @@ export default function SuperAdminDashboard() {
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      await Promise.all([fetchDashboard(), fetchNSE(), fetchMCX()])
+      await Promise.all([fetchDashboard(), fetchMarketData()])
       toast.success('Data refreshed successfully')
     } catch (error) {
       toast.error('Failed to refresh data')
@@ -117,6 +145,8 @@ export default function SuperAdminDashboard() {
               <Input
                 type="text"
                 placeholder="Search instruments..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 h-10 bg-gray-50 border-gray-200 w-full"
               />
             </div>
@@ -152,6 +182,7 @@ export default function SuperAdminDashboard() {
               <SelectValue placeholder="NSE" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="CRYPTO">CRYPTO</SelectItem>
               <SelectItem value="NSE">NSE</SelectItem>
               <SelectItem value="MCX">MCX</SelectItem>
               <SelectItem value="BSE">BSE</SelectItem>
@@ -160,53 +191,157 @@ export default function SuperAdminDashboard() {
             </SelectContent>
           </Select>
 
-          <Select value={selectedScriptName} onValueChange={setSelectedScriptName}>
-            <SelectTrigger className="w-36 h-10 bg-white">
-              <SelectValue placeholder="Script" />
+          <Select value={selectedScriptName || "__all__"} onValueChange={(val) => setSelectedScriptName(val === "__all__" ? "" : val)}>
+            <SelectTrigger className="w-48 h-10 bg-white">
+              <SelectValue placeholder="All Scripts" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="nifty">NIFTY 500</SelectItem>
-              <SelectItem value="banknifty">BANKNIFTY</SelectItem>
-              <SelectItem value="sensex">SENSEX</SelectItem>
+              <SelectItem value="__all__">All Scripts</SelectItem>
+              {uniqueSymbols.slice(0, 20).map((symbol) => (
+                <SelectItem key={String(symbol)} value={String(symbol)}>{String(symbol)}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
-          <Select value={selectedExpiry} onValueChange={setSelectedExpiry}>
+          <Select value={selectedExpiry || "__all__"} onValueChange={(val) => setSelectedExpiry(val === "__all__" ? "" : val)}>
             <SelectTrigger className="w-36 h-10 bg-white">
               <SelectValue placeholder="Expiry" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="__all__">All Expiry</SelectItem>
               <SelectItem value="weekly">Weekly</SelectItem>
               <SelectItem value="monthly">Monthly</SelectItem>
               <SelectItem value="quarterly">Quarterly</SelectItem>
             </SelectContent>
           </Select>
 
-          <Select value={selectedCEPE} onValueChange={setSelectedCEPE}>
+          <Select value={selectedCEPE || "__all__"} onValueChange={(val) => setSelectedCEPE(val === "__all__" ? "" : val)}>
             <SelectTrigger className="w-36 h-10 bg-white">
               <SelectValue placeholder="CE/PE" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="__all__">All</SelectItem>
               <SelectItem value="ce">CE (Call)</SelectItem>
               <SelectItem value="pe">PE (Put)</SelectItem>
             </SelectContent>
           </Select>
 
-          <Select value={selectedStrike} onValueChange={setSelectedStrike}>
+          <Select value={selectedStrike || "__all__"} onValueChange={(val) => setSelectedStrike(val === "__all__" ? "" : val)}>
             <SelectTrigger className="w-36 h-10 bg-white">
               <SelectValue placeholder="Strike" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="__all__">All Strikes</SelectItem>
               <SelectItem value="25000">25000</SelectItem>
               <SelectItem value="25100">25100</SelectItem>
               <SelectItem value="25200">25200</SelectItem>
             </SelectContent>
           </Select>
+
+          {(selectedScriptName || searchQuery) && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => { setSelectedScriptName(''); setSearchQuery(''); }}
+            >
+              Clear Filters
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="p-6 space-y-6">
+        {/* CRYPTO Section */}
+        <Card className="overflow-hidden">
+          <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-gray-700">CRYPTO</span>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+                {marketLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>}
+              </div>
+              <span className="text-sm text-gray-500">
+                {cryptoInstruments.length} instruments
+              </span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Symbol</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Bid</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Ask</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">LTP</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Change</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Change %</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">High</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Low</TableHead>
+                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Volume</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {marketLoading && cryptoInstruments.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto mb-2"></div>
+                      Loading CRYPTO data...
+                    </TableCell>
+                  </TableRow>
+                ) : cryptoInstruments.length > 0 ? (
+                  cryptoInstruments.slice(0, 20).map((instrument: any, index: number) => {
+                    // Handle both old and new data formats
+                    const symbol = instrument.symbol;
+                    const bid = instrument.bidPrice || instrument.bid || 0;
+                    const ask = instrument.askPrice || instrument.ask || 0;
+                    const ltp = instrument.lastPrice || instrument.ltp || instrument.closePrice || instrument.close || 0;
+                    const open = instrument.openPrice || instrument.open || 0;
+                    const high = instrument.highPrice || instrument.high || 0;
+                    const low = instrument.lowPrice || instrument.low || 0;
+                    const volume = instrument.volume || 0;
+                    const change = instrument.change || (ltp - open);
+                    const changePercent = instrument.changePercent || (open > 0 ? ((ltp - open) / open * 100) : 0);
+                    
+                    return (
+                      <TableRow key={instrument.id || instrument.instrumentId || index} className="hover:bg-gray-50">
+                        <TableCell className="font-medium px-4 py-3">{symbol}</TableCell>
+                        <TableCell className="px-4 py-3">{formatCurrency(bid)}</TableCell>
+                        <TableCell className="px-4 py-3">{formatCurrency(ask)}</TableCell>
+                        <TableCell className="px-4 py-3 font-semibold">{formatCurrency(ltp)}</TableCell>
+                        <TableCell className={`px-4 py-3 flex items-center ${
+                          change >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {change >= 0 ? (
+                            <TrendingUp className="w-3 h-3 mr-1" />
+                          ) : (
+                            <TrendingDown className="w-3 h-3 mr-1" />
+                          )}
+                          {formatCurrency(change)}
+                        </TableCell>
+                        <TableCell className={`px-4 py-3 ${
+                          changePercent >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {changePercent.toFixed(2)}%
+                        </TableCell>
+                        <TableCell className="px-4 py-3">{formatCurrency(high)}</TableCell>
+                        <TableCell className="px-4 py-3">{formatCurrency(low)}</TableCell>
+                        <TableCell className="px-4 py-3">{formatNumber(volume, 0)}</TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                      No CRYPTO data available
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+
         {/* NSE Section */}
         <Card className="overflow-hidden">
           <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
@@ -214,7 +349,7 @@ export default function SuperAdminDashboard() {
               <div className="flex items-center gap-2">
                 <span className="font-medium text-gray-700">NSE</span>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
-                {nseLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>}
+                {marketLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>}
               </div>
               <span className="text-sm text-gray-500">
                 {nseInstruments.length} instruments
@@ -237,7 +372,7 @@ export default function SuperAdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {nseLoading && nseInstruments.length === 0 ? (
+                {marketLoading && nseInstruments.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto mb-2"></div>
@@ -245,112 +380,50 @@ export default function SuperAdminDashboard() {
                     </TableCell>
                   </TableRow>
                 ) : nseInstruments.length > 0 ? (
-                  nseInstruments.slice(0, 20).map((instrument: any, index: number) => (
-                    <TableRow key={instrument.id || index} className="hover:bg-gray-50">
-                      <TableCell className="font-medium px-4 py-3">{instrument.symbol}</TableCell>
-                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.bid || 0)}</TableCell>
-                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.ask || 0)}</TableCell>
-                      <TableCell className="px-4 py-3 font-semibold">{formatCurrency(instrument.currentPrice?.ltp || 0)}</TableCell>
-                      <TableCell className={`px-4 py-3 flex items-center ${
-                        (instrument.currentPrice?.change || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {(instrument.currentPrice?.change || 0) >= 0 ? (
-                          <TrendingUp className="w-3 h-3 mr-1" />
-                        ) : (
-                          <TrendingDown className="w-3 h-3 mr-1" />
-                        )}
-                        {formatCurrency(instrument.currentPrice?.change || 0)}
-                      </TableCell>
-                      <TableCell className={`px-4 py-3 ${
-                        (instrument.currentPrice?.changePercent || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {((instrument.currentPrice?.changePercent || 0) * 100).toFixed(2)}%
-                      </TableCell>
-                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.high || 0)}</TableCell>
-                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.low || 0)}</TableCell>
-                      <TableCell className="px-4 py-3">{formatNumber(instrument.currentPrice?.volume || 0, 0)}</TableCell>
-                    </TableRow>
-                  ))
+                  nseInstruments.slice(0, 20).map((instrument: any, index: number) => {
+                    // Handle both old and new data formats
+                    const symbol = instrument.symbol;
+                    const bid = instrument.bidPrice || instrument.bid || 0;
+                    const ask = instrument.askPrice || instrument.ask || 0;
+                    const ltp = instrument.lastPrice || instrument.ltp || instrument.closePrice || instrument.close || 0;
+                    const open = instrument.openPrice || instrument.open || 0;
+                    const high = instrument.highPrice || instrument.high || 0;
+                    const low = instrument.lowPrice || instrument.low || 0;
+                    const volume = instrument.volume || 0;
+                    const change = instrument.change || (ltp - open);
+                    const changePercent = instrument.changePercent || (open > 0 ? ((ltp - open) / open * 100) : 0);
+                    
+                    return (
+                      <TableRow key={instrument.id || instrument.instrumentId || index} className="hover:bg-gray-50">
+                        <TableCell className="font-medium px-4 py-3">{symbol}</TableCell>
+                        <TableCell className="px-4 py-3">{formatCurrency(bid)}</TableCell>
+                        <TableCell className="px-4 py-3">{formatCurrency(ask)}</TableCell>
+                        <TableCell className="px-4 py-3 font-semibold">{formatCurrency(ltp)}</TableCell>
+                        <TableCell className={`px-4 py-3 flex items-center ${
+                          change >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {change >= 0 ? (
+                            <TrendingUp className="w-3 h-3 mr-1" />
+                          ) : (
+                            <TrendingDown className="w-3 h-3 mr-1" />
+                          )}
+                          {formatCurrency(change)}
+                        </TableCell>
+                        <TableCell className={`px-4 py-3 ${
+                          changePercent >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {changePercent.toFixed(2)}%
+                        </TableCell>
+                        <TableCell className="px-4 py-3">{formatCurrency(high)}</TableCell>
+                        <TableCell className="px-4 py-3">{formatCurrency(low)}</TableCell>
+                        <TableCell className="px-4 py-3">{formatNumber(volume, 0)}</TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                       No NSE data available
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-
-        {/* MCX Section */}
-        <Card className="overflow-hidden">
-          <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-gray-700">MCX</span>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-                {mcxLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>}
-              </div>
-              <span className="text-sm text-gray-500">
-                {mcxInstruments.length} instruments
-              </span>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50">
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Symbol</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Bid</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Ask</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">LTP</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Change</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Change %</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">High</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Low</TableHead>
-                  <TableHead className="font-semibold text-gray-700 px-4 py-3">Volume</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mcxLoading && mcxInstruments.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto mb-2"></div>
-                      Loading MCX data...
-                    </TableCell>
-                  </TableRow>
-                ) : mcxInstruments.length > 0 ? (
-                  mcxInstruments.slice(0, 20).map((instrument: any, index: number) => (
-                    <TableRow key={instrument.id || index} className="hover:bg-gray-50">
-                      <TableCell className="font-medium px-4 py-3">{instrument.symbol}</TableCell>
-                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.bid || 0)}</TableCell>
-                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.ask || 0)}</TableCell>
-                      <TableCell className="px-4 py-3 font-semibold">{formatCurrency(instrument.currentPrice?.ltp || 0)}</TableCell>
-                      <TableCell className={`px-4 py-3 flex items-center ${
-                        (instrument.currentPrice?.change || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {(instrument.currentPrice?.change || 0) >= 0 ? (
-                          <TrendingUp className="w-3 h-3 mr-1" />
-                        ) : (
-                          <TrendingDown className="w-3 h-3 mr-1" />
-                        )}
-                        {formatCurrency(instrument.currentPrice?.change || 0)}
-                      </TableCell>
-                      <TableCell className={`px-4 py-3 ${
-                        (instrument.currentPrice?.changePercent || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {((instrument.currentPrice?.changePercent || 0) * 100).toFixed(2)}%
-                      </TableCell>
-                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.high || 0)}</TableCell>
-                      <TableCell className="px-4 py-3">{formatCurrency(instrument.currentPrice?.low || 0)}</TableCell>
-                      <TableCell className="px-4 py-3">{formatNumber(instrument.currentPrice?.volume || 0, 0)}</TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                      No MCX data available
                     </TableCell>
                   </TableRow>
                 )}

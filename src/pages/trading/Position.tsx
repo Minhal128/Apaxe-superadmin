@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -7,11 +7,42 @@ import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { Download, List, Grid3x3, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { tradingApi } from '../../services/api'
+import { useApi } from '../../hooks/useApi'
+import { toast } from 'react-toastify'
 
 export default function Position() {
   const [filterType, setFilterType] = useState('all')
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [expandedRows, setExpandedRows] = useState<number[]>([])
+  const [filters, setFilters] = useState({
+    userId: '',
+    segmentId: '',
+    instrumentId: '',
+    status: '',
+    page: 1,
+    limit: 50
+  })
+
+  // API call for positions data
+  const { 
+    data: positionsResponse, 
+    loading: positionsLoading, 
+    execute: fetchPositions 
+  } = useApi(tradingApi.getAllPositions, { 
+    immediate: false,
+    onError: (error: string) => {
+      // Handle authentication errors gracefully
+      if (error.includes('401') || error.includes('403') || error.includes('500')) {
+        console.log('Positions endpoint requires authentication');
+      }
+    }
+  })
+
+  // Fetch positions when component mounts or filters change
+  useEffect(() => {
+    fetchPositions(filters)
+  }, [fetchPositions, filters])
 
   const toggleRow = (id: number) => {
     setExpandedRows(prev => 
@@ -19,62 +50,68 @@ export default function Position() {
     )
   }
 
-  const positionData = [
-    { 
-      id: 1, 
-      tradeBy: 'Client', 
-      time: '21:46:47', 
-      date: '09-10-2025', 
-      name: 'VT03(419261)', 
-      market: 'Market', 
-      symbol: 'SILVER 05DEC2025', 
-      type: 'S', 
-      lot: '1.00', 
-      qty: '20', 
-      modify: true,
-      cancel: true,
-      orderPrice: '149,704.000',
-      netP: '149,700.6667',
-      status: 'Executed',
-      ip: '149,700.6667'
-    },
-    { 
-      id: 2, 
-      tradeBy: 'Client', 
-      time: '21:46:47', 
-      date: '09-10-2025', 
-      name: 'VT03(419261)', 
-      market: 'Market', 
-      symbol: 'SILVER 05DEC2025', 
-      type: 'S', 
-      lot: '1.00', 
-      qty: '20', 
-      modify: true,
-      cancel: true,
-      orderPrice: '149,704.000',
-      netP: '149,700.6667',
-      status: 'Executed',
-      ip: '149,700.6667'
-    },
-    { 
-      id: 3, 
-      tradeBy: 'Client', 
-      time: '21:46:47', 
-      date: '09-10-2025', 
-      name: 'VT03(419261)', 
-      market: 'Market', 
-      symbol: 'SILVER 05DEC2025', 
-      type: 'S', 
-      lot: '1.00', 
-      qty: '20', 
-      modify: true,
-      cancel: true,
-      orderPrice: '149,704.000',
-      netP: '149,700.6667',
-      status: 'Executed',
-      ip: '149,700.6667'
-    },
-  ]
+  // const handleFilterChange = (key: string, value: string) => {
+  //   setFilters(prev => ({
+  //     ...prev,
+  //     [key]: value,
+  //     page: 1 // Reset to first page when filters change
+  //   }))
+  // }
+
+  const handlePageChange = (newPage: number) => {
+    setFilters(prev => ({
+      ...prev,
+      page: newPage
+    }))
+  }
+
+  const handleClosePosition = async (positionId: string) => {
+    try {
+      await tradingApi.closePosition(positionId, {
+        reason: 'Manual close by admin'
+      })
+      toast.success('Position closed successfully')
+      fetchPositions(filters) // Refresh data
+    } catch (error) {
+      toast.error('Failed to close position')
+    }
+  }
+
+  const handleExport = async () => {
+    try {
+      toast.info('Export functionality coming soon')
+    } catch (error) {
+      toast.error('Failed to export data')
+    }
+  }
+
+  // Get positions data from API response
+  const positions = positionsResponse?.data?.positions || []
+  const pagination = positionsResponse?.data?.pagination || { page: 1, totalPages: 1, total: 0 }
+
+  // Calculate summary stats from positions
+  const summaryStats = positions.reduce((acc: any, position: any) => {
+    const mtm = position.unrealizedPnL || 0
+    const qty = position.quantity || 0
+    
+    acc.totalMTM += mtm
+    if (position.side === 'SELL') {
+      acc.sellMTM += mtm
+      acc.sellQty += qty
+    } else {
+      acc.buyQty += qty
+    }
+    acc.totalQty += qty
+    
+    return acc
+  }, {
+    totalMTM: 0,
+    sellMTM: 0,
+    downlineMTM: 0,
+    buyQty: 0,
+    sellQty: 0,
+    totalQty: 0
+  })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -173,27 +210,27 @@ export default function Position() {
           <div className="flex flex-wrap gap-4 text-sm">
             <div>
               <span className="text-gray-600">Total MTM</span>
-              <span className="ml-2 font-semibold">0.00</span>
+              <span className="ml-2 font-semibold">₹{summaryStats.totalMTM.toLocaleString()}</span>
             </div>
             <div>
               <span className="text-gray-600">Sell MTM</span>
-              <span className="ml-2 font-semibold">0.00</span>
+              <span className="ml-2 font-semibold">₹{summaryStats.sellMTM.toLocaleString()}</span>
             </div>
             <div>
               <span className="text-gray-600">Downline MTM</span>
-              <span className="ml-2 font-semibold">0.00</span>
+              <span className="ml-2 font-semibold">₹{summaryStats.downlineMTM.toLocaleString()}</span>
             </div>
             <div>
               <span className="text-gray-600">BUY QTY</span>
-              <span className="ml-2 font-semibold">0.00</span>
+              <span className="ml-2 font-semibold">{summaryStats.buyQty.toLocaleString()}</span>
             </div>
             <div>
               <span className="text-gray-600">SELL QTY</span>
-              <span className="ml-2 font-semibold">0.00</span>
+              <span className="ml-2 font-semibold">{summaryStats.sellQty.toLocaleString()}</span>
             </div>
             <div>
               <span className="text-gray-600">TOTAL QTY</span>
-              <span className="ml-2 font-semibold">0.00</span>
+              <span className="ml-2 font-semibold">{summaryStats.totalQty.toLocaleString()}</span>
             </div>
           </div>
 
@@ -301,27 +338,27 @@ export default function Position() {
             <div className="grid grid-cols-2 gap-3 text-sm border-t pt-3">
               <div>
                 <span className="text-gray-600">Total MTM:</span>
-                <span className="ml-1 font-semibold">0.00</span>
+                <span className="ml-1 font-semibold">₹{summaryStats.totalMTM.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-gray-600">Sell MTM:</span>
-                <span className="ml-1 font-semibold">0.00</span>
+                <span className="ml-1 font-semibold">₹{summaryStats.sellMTM.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-gray-600">Downline MTM:</span>
-                <span className="ml-1 font-semibold">0.00</span>
+                <span className="ml-1 font-semibold">₹{summaryStats.downlineMTM.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-gray-600">BUY QTY:</span>
-                <span className="ml-1 font-semibold">0.00</span>
+                <span className="ml-1 font-semibold">{summaryStats.buyQty.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-gray-600">SELL QTY:</span>
-                <span className="ml-1 font-semibold">0.00</span>
+                <span className="ml-1 font-semibold">{summaryStats.sellQty.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-gray-600">TOTAL QTY:</span>
-                <span className="ml-1 font-semibold">0.00</span>
+                <span className="ml-1 font-semibold">{summaryStats.totalQty.toLocaleString()}</span>
               </div>
             </div>
 
@@ -342,199 +379,243 @@ export default function Position() {
           <div className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-200">
             <div className="flex items-center gap-2">
               <List className="w-4 h-4 text-gray-500" />
-              <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
+              <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" onClick={handleExport} />
+            </div>
+            <div className="text-sm text-gray-600">
+              {positionsLoading ? 'Loading...' : `${positions.length} positions`}
             </div>
           </div>
           
-          {/* Desktop Table */}
-          <div className="hidden lg:block overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50">
-                  <TableHead className="font-semibold text-gray-700 min-w-[50px]">D ▼</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[100px]">Trade by</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[80px]">Time</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[100px]">Date</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[120px]">Name</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[100px]">Market</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[150px]">Symbol</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[60px]">Type</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[60px]">Lot</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[60px]">QTY</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[80px]">Modify</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[80px]">Cancel</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[120px]">Order Price</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[120px]">Net P</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[100px]">Status</TableHead>
-                  <TableHead className="font-semibold text-gray-700 min-w-[100px]">IP</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {positionData.map((row) => (
-                  <TableRow key={row.id} className="hover:bg-gray-50">
-                    <TableCell>
-                      <input type="radio" name="position" className="rounded-full" />
-                    </TableCell>
-                    <TableCell className="font-medium">{row.tradeBy}</TableCell>
-                    <TableCell>{row.time}</TableCell>
-                    <TableCell>{row.date}</TableCell>
-                    <TableCell>{row.name}</TableCell>
-                    <TableCell>{row.market}</TableCell>
-                    <TableCell>{row.symbol}</TableCell>
-                    <TableCell>
-                      <Badge className={`${
-                        row.type === 'S' 
-                          ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                          : 'bg-green-100 text-green-700 hover:bg-green-200'
-                      }`}>
-                        {row.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{row.lot}</TableCell>
-                    <TableCell>{row.qty}</TableCell>
-                    <TableCell>
-                      <Pencil className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-700" />
-                    </TableCell>
-                    <TableCell>
-                      <Trash2 className="w-4 h-4 text-gray-400 cursor-pointer hover:text-red-600" />
-                    </TableCell>
-                    <TableCell>{row.orderPrice}</TableCell>
-                    <TableCell>{row.netP}</TableCell>
-                    <TableCell>
-                      <Badge className="bg-green-100 text-green-700 hover:bg-green-200">
-                        {row.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{row.ip}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Mobile Cards */}
-          <div className="lg:hidden">
-            {positionData.map((row) => (
-              <Card key={row.id} className="m-4 overflow-hidden">
-                {/* Header - Always Visible */}
-                <div 
-                  className="p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50"
-                  onClick={() => toggleRow(row.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <input type="radio" name="position" className="rounded-full" />
-                      <div>
-                        <div className="font-semibold text-gray-900">{row.name}</div>
-                        <div className="text-sm text-gray-500 flex items-center gap-2">
-                          <span>{row.symbol}</span>
-                          <Badge className={`text-xs ${
-                            row.type === 'S' 
-                              ? 'bg-red-100 text-red-700' 
-                              : 'bg-green-100 text-green-700'
-                          }`}>
-                            {row.type}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-green-100 text-green-700 text-xs">
-                        {row.status}
-                      </Badge>
-                      {expandedRows.includes(row.id) ? (
-                        <ChevronUp className="w-4 h-4 text-gray-500" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-gray-500" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expandable Content */}
-                {expandedRows.includes(row.id) && (
-                  <div className="p-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="space-y-1">
-                        <span className="font-medium text-gray-500">Trade By:</span>
-                        <p className="text-gray-900">{row.tradeBy}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="font-medium text-gray-500">Date & Time:</span>
-                        <p className="text-gray-900">{row.date} {row.time}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="font-medium text-gray-500">Market:</span>
-                        <p className="text-gray-900">{row.market}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="font-medium text-gray-500">Lot:</span>
-                        <p className="text-gray-900">{row.lot}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="font-medium text-gray-500">Quantity:</span>
-                        <p className="text-gray-900 font-semibold">{row.qty}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="font-medium text-gray-500">Order Price:</span>
-                        <p className="text-gray-900 font-semibold">{row.orderPrice}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="font-medium text-gray-500">Net P:</span>
-                        <p className="text-gray-900 font-semibold">{row.netP}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="font-medium text-gray-500">IP:</span>
-                        <p className="text-gray-900 text-xs">{row.ip}</p>
-                      </div>
-                    </div>
-                    
-                    {/* Action Buttons */}
-                    <div className="flex gap-2 pt-3 border-t border-gray-200">
-                      <Button variant="outline" size="sm" className="flex-1 text-xs">
-                        <Pencil className="w-3 h-3 mr-1" />
-                        Modify
-                      </Button>
-                      <Button variant="outline" size="sm" className="flex-1 text-xs text-red-600 hover:text-red-700">
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </Card>
-            ))}
-          </div>
-
-          {/* Empty State */}
-          {positionData.length === 0 && (
+          {positionsLoading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading positions...</p>
+            </div>
+          ) : positions.length === 0 ? (
             <div className="p-8 text-center">
               <div className="text-gray-400 mb-2">No position data available</div>
               <div className="text-sm text-gray-500">Try adjusting your search filters</div>
             </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden lg:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50">
+                      <TableHead className="font-semibold text-gray-700 min-w-[50px]">Select</TableHead>
+                      <TableHead className="font-semibold text-gray-700 min-w-[120px]">User</TableHead>
+                      <TableHead className="font-semibold text-gray-700 min-w-[100px]">Symbol</TableHead>
+                      <TableHead className="font-semibold text-gray-700 min-w-[100px]">Market</TableHead>
+                      <TableHead className="font-semibold text-gray-700 min-w-[60px]">Side</TableHead>
+                      <TableHead className="font-semibold text-gray-700 min-w-[60px]">Qty</TableHead>
+                      <TableHead className="font-semibold text-gray-700 min-w-[120px]">Avg Price</TableHead>
+                      <TableHead className="font-semibold text-gray-700 min-w-[120px]">Current Price</TableHead>
+                      <TableHead className="font-semibold text-gray-700 min-w-[120px]">P&L</TableHead>
+                      <TableHead className="font-semibold text-gray-700 min-w-[100px]">Status</TableHead>
+                      <TableHead className="font-semibold text-gray-700 min-w-[100px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {positions.map((position: any) => (
+                      <TableRow key={position.id} className="hover:bg-gray-50">
+                        <TableCell>
+                          <input type="radio" name="position" className="rounded-full" />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {position.user?.firstName} {position.user?.lastName}
+                        </TableCell>
+                        <TableCell>{position.instrument?.symbol}</TableCell>
+                        <TableCell>{position.instrument?.segment?.name}</TableCell>
+                        <TableCell>
+                          <Badge className={`${
+                            position.side === 'SELL' 
+                              ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          }`}>
+                            {position.side}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{position.quantity}</TableCell>
+                        <TableCell>₹{position.avgPrice?.toLocaleString()}</TableCell>
+                        <TableCell>₹{position.currentPrice?.toLocaleString()}</TableCell>
+                        <TableCell className={`font-semibold ${
+                          (position.unrealizedPnL || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          ₹{position.unrealizedPnL?.toLocaleString() || '0'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`${
+                            position.status === 'OPEN' ? 'bg-green-100 text-green-700' :
+                            position.status === 'CLOSED' ? 'bg-gray-100 text-gray-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {position.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button 
+                              size="sm" 
+                              className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              className="h-6 px-2 text-xs bg-red-600 hover:bg-red-700 text-white"
+                              onClick={() => handleClosePosition(position.id)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="lg:hidden">
+                {positions.map((position: any) => (
+                  <Card key={position.id} className="m-4 overflow-hidden">
+                    {/* Header - Always Visible */}
+                    <div 
+                      className="p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50"
+                      onClick={() => toggleRow(position.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <input type="radio" name="position" className="rounded-full" />
+                          <div>
+                            <div className="font-semibold text-gray-900">{position.instrument?.symbol}</div>
+                            <div className="text-sm text-gray-500 flex items-center gap-2">
+                              <span>{position.user?.firstName} {position.user?.lastName}</span>
+                              <Badge className={`text-xs ${
+                                position.side === 'SELL' 
+                                  ? 'bg-red-100 text-red-700' 
+                                  : 'bg-green-100 text-green-700'
+                              }`}>
+                                {position.side}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className={`text-xs ${
+                            position.status === 'OPEN' ? 'bg-green-100 text-green-700' :
+                            position.status === 'CLOSED' ? 'bg-gray-100 text-gray-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {position.status}
+                          </Badge>
+                          {expandedRows.includes(position.id) ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expandable Content */}
+                    {expandedRows.includes(position.id) && (
+                      <div className="p-4 space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="space-y-1">
+                            <span className="font-medium text-gray-500">Market:</span>
+                            <p className="text-gray-900">{position.instrument?.segment?.name}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <span className="font-medium text-gray-500">Quantity:</span>
+                            <p className="text-gray-900 font-semibold">{position.quantity}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <span className="font-medium text-gray-500">Avg Price:</span>
+                            <p className="text-gray-900 font-semibold">₹{position.avgPrice?.toLocaleString()}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <span className="font-medium text-gray-500">Current Price:</span>
+                            <p className="text-gray-900 font-semibold">₹{position.currentPrice?.toLocaleString()}</p>
+                          </div>
+                          <div className="space-y-1 col-span-2">
+                            <span className="font-medium text-gray-500">P&L:</span>
+                            <p className={`font-semibold text-lg ${
+                              (position.unrealizedPnL || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              ₹{position.unrealizedPnL?.toLocaleString() || '0'}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 pt-3 border-t border-gray-200">
+                          <Button variant="outline" size="sm" className="flex-1 text-xs">
+                            <Pencil className="w-3 h-3 mr-1" />
+                            Modify
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1 text-xs text-red-600 hover:text-red-700"
+                            onClick={() => handleClosePosition(position.id)}
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Close
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </Card>
 
-        {/* Pagination - Mobile Friendly */}
-        <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
-          <div className="text-sm text-gray-600">
-            Showing {positionData.length} positions
+        {/* Pagination */}
+        {!positionsLoading && positions.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
+            <div className="text-sm text-gray-600">
+              Page {pagination.page} of {pagination.totalPages} ({pagination.total} total positions)
+            </div>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={pagination.page <= 1}
+                onClick={() => handlePageChange(pagination.page - 1)}
+                className="text-xs"
+              >
+                Previous
+              </Button>
+              {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                const pageNum = i + 1;
+                return (
+                  <Button 
+                    key={pageNum}
+                    variant="outline" 
+                    size="sm" 
+                    className={`text-xs ${pagination.page === pageNum ? 'bg-gray-100' : ''}`}
+                    onClick={() => handlePageChange(pageNum)}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => handlePageChange(pagination.page + 1)}
+                className="text-xs"
+              >
+                Next
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Button variant="outline" size="sm" disabled className="text-xs">
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs bg-gray-100">
-              1
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs">
-              2
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs">
-              Next
-            </Button>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )

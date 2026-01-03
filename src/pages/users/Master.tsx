@@ -6,11 +6,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Label } from '@/components/ui/label'
 import { Calendar, Download, List, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react'
+import { userApi } from '../../services/api'
+import { useApi } from '../../hooks/useApi'
+import { toast } from 'react-toastify'
 
 export default function Master() {
   const [isMobile, setIsMobile] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
+  const [filters, setFilters] = useState({
+    role: '',
+    status: '',
+    search: '',
+    page: 1,
+    limit: 50
+  })
+
+  // API call for users data
+  const { 
+    data: usersResponse, 
+    loading: usersLoading, 
+    execute: fetchUsers 
+  } = useApi(userApi.getUsers, { immediate: false })
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -23,58 +40,60 @@ export default function Master() {
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
-  const masterData = [
-    { 
-      date: '09-10-2025',
-      loginId: '161422',
-      p: '1',
-      dCount: '3',
-      bCount: '4',
-      cCount: '0',
-      master: 'DEMO MST-01-Master (706730)',
-      actions: ['E', 'L', 'RP', 'CL', 'A'],
-      loginTime: '2025-06-06',
-      loginIp: '103.215.156.14',
-      joinTime: '2025-06-06'
-    },
-    { 
-      date: '09-10-2025',
-      loginId: '161422',
-      p: '1',
-      dCount: '3',
-      bCount: '4',
-      cCount: '0',
-      master: 'DEMO MST-01-Master (706730)',
-      actions: ['E', 'L', 'RP', 'CL', 'A'],
-      loginTime: '2025-06-06',
-      loginIp: '103.215.156.14',
-      joinTime: '2025-06-06'
-    },
-    { 
-      date: '09-10-2025',
-      loginId: '161422',
-      p: '1',
-      dCount: '3',
-      bCount: '4',
-      cCount: '0',
-      master: 'DEMO MST-01-Master (706730)',
-      actions: ['E', 'L', 'RP', 'CL', 'A'],
-      loginTime: '2025-06-06',
-      loginIp: '103.215.156.14',
-      joinTime: '2025-06-06'
-    },
-  ]
+  // Fetch users when component mounts or filters change
+  useEffect(() => {
+    fetchUsers(filters)
+  }, [fetchUsers, filters])
 
-  const MobileMasterCard = ({ master, index }: { master: typeof masterData[0], index: number }) => (
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value,
+      page: 1 // Reset to first page when filters change
+    }))
+  }
+
+  const handleSearch = (searchTerm: string) => {
+    setFilters(prev => ({
+      ...prev,
+      search: searchTerm,
+      page: 1
+    }))
+  }
+
+  const handlePageChange = (newPage: number) => {
+    setFilters(prev => ({
+      ...prev,
+      page: newPage
+    }))
+  }
+
+  const handleExport = async () => {
+    try {
+      toast.info('Export functionality coming soon')
+    } catch (error) {
+      toast.error('Failed to export data')
+    }
+  }
+
+  // Get users data from API response
+  const users = usersResponse?.data?.users || []
+  const pagination = usersResponse?.data?.pagination || { page: 1, totalPages: 1, total: 0 }
+
+  const MobileMasterCard = ({ user, index }: { user: any, index: number }) => (
     <Card key={index} className="p-4 mb-4">
       <div className="space-y-3">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <div className={`w-2 h-2 rounded-full ${
+              user.status === 'ACTIVE' ? 'bg-green-500' : 
+              user.status === 'INACTIVE' ? 'bg-gray-500' : 
+              user.status === 'SUSPENDED' ? 'bg-yellow-500' : 'bg-red-500'
+            }`}></div>
             <div>
-              <div className="font-medium text-sm">{master.master}</div>
-              <div className="text-xs text-gray-500">ID: {master.loginId}</div>
+              <div className="font-medium text-sm">{user.firstName} {user.lastName}</div>
+              <div className="text-xs text-gray-500">ID: {user.id}</div>
             </div>
           </div>
           <button 
@@ -88,20 +107,20 @@ export default function Master() {
         {/* Basic Info */}
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <span className="text-gray-500 text-xs">Date</span>
-            <div className="font-medium">{master.date}</div>
+            <span className="text-gray-500 text-xs">Role</span>
+            <div className="font-medium">{user.role}</div>
           </div>
           <div>
-            <span className="text-gray-500 text-xs">P (%)</span>
-            <div className="font-medium">{master.p}%</div>
+            <span className="text-gray-500 text-xs">Status</span>
+            <div className="font-medium">{user.status}</div>
           </div>
           <div>
-            <span className="text-gray-500 text-xs">D. Count</span>
-            <div className="font-medium">{master.dCount}</div>
+            <span className="text-gray-500 text-xs">Balance</span>
+            <div className="font-medium">₹{user.balance?.toLocaleString() || '0'}</div>
           </div>
           <div>
-            <span className="text-gray-500 text-xs">B. Count</span>
-            <div className="font-medium">{master.bCount}</div>
+            <span className="text-gray-500 text-xs">Email</span>
+            <div className="font-medium text-xs">{user.email}</div>
           </div>
         </div>
 
@@ -110,20 +129,20 @@ export default function Master() {
           <div className="border-t pt-3 space-y-3">
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-gray-500 text-xs">C. Count</span>
-                <div className="font-medium">{master.cCount}</div>
+                <span className="text-gray-500 text-xs">Username</span>
+                <div className="font-medium">{user.username}</div>
               </div>
               <div>
-                <span className="text-gray-500 text-xs">Login IP</span>
-                <div className="font-medium text-xs">{master.loginIp}</div>
+                <span className="text-gray-500 text-xs">Phone</span>
+                <div className="font-medium text-xs">{user.phone || 'N/A'}</div>
               </div>
               <div className="col-span-2">
-                <span className="text-gray-500 text-xs">Login Time</span>
-                <div className="font-medium">{master.loginTime}</div>
+                <span className="text-gray-500 text-xs">Created At</span>
+                <div className="font-medium">{new Date(user.createdAt).toLocaleDateString()}</div>
               </div>
               <div className="col-span-2">
-                <span className="text-gray-500 text-xs">Join Time</span>
-                <div className="font-medium">{master.joinTime}</div>
+                <span className="text-gray-500 text-xs">Last Login</span>
+                <div className="font-medium">{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'}</div>
               </div>
             </div>
 
@@ -131,15 +150,18 @@ export default function Master() {
             <div>
               <span className="text-gray-500 text-xs block mb-2">Actions</span>
               <div className="flex items-center gap-1 flex-wrap">
-                {master.actions.map((action, idx) => (
-                  <Button
-                    key={idx}
-                    size="sm"
-                    className="h-6 w-6 p-0 text-xs bg-gray-600 hover:bg-gray-700 text-white"
-                  >
-                    {action}
-                  </Button>
-                ))}
+                <Button size="sm" className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700 text-white">
+                  Edit
+                </Button>
+                <Button size="sm" className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white">
+                  Balance
+                </Button>
+                <Button size="sm" className="h-6 px-2 text-xs bg-yellow-600 hover:bg-yellow-700 text-white">
+                  Reset
+                </Button>
+                <Button size="sm" className="h-6 px-2 text-xs bg-gray-600 hover:bg-gray-700 text-white">
+                  View
+                </Button>
               </div>
             </div>
           </div>
@@ -149,20 +171,13 @@ export default function Master() {
         {expandedRow !== index && (
           <div className="flex items-center justify-between pt-2 border-t">
             <div className="flex items-center gap-1">
-              {master.actions.slice(0, 3).map((action, idx) => (
-                <Button
-                  key={idx}
-                  size="sm"
-                  className="h-6 w-6 p-0 text-xs bg-gray-600 hover:bg-gray-700 text-white"
-                >
-                  {action}
-                </Button>
-              ))}
-              {master.actions.length > 3 && (
-                <span className="text-xs text-gray-500 ml-1">
-                  +{master.actions.length - 3} more
-                </span>
-              )}
+              <Button size="sm" className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700 text-white">
+                Edit
+              </Button>
+              <Button size="sm" className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white">
+                Balance
+              </Button>
+              <span className="text-xs text-gray-500 ml-1">+2 more</span>
             </div>
             <span className="text-xs text-gray-500">Click to expand</span>
           </div>
@@ -175,12 +190,14 @@ export default function Master() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-800">Master</h1>
+        <h1 className="text-xl font-semibold text-gray-800">Users Management</h1>
         <div className="flex items-center gap-2 md:gap-4">
           <div className="relative">
             <Input
               type="text"
-              placeholder="Search"
+              placeholder="Search users..."
+              value={filters.search}
+              onChange={(e) => handleSearch(e.target.value)}
               className="w-32 md:w-64 pl-8 md:pl-3"
             />
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 md:hidden" />
@@ -193,7 +210,7 @@ export default function Master() {
           >
             <Filter className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="icon" className="hidden md:flex">
+          <Button variant="outline" size="icon" className="hidden md:flex" onClick={handleExport}>
             <Download className="w-4 h-4" />
           </Button>
         </div>
@@ -203,36 +220,44 @@ export default function Master() {
       <div className={`bg-white border-b border-gray-200 px-4 md:px-6 py-4 ${isMobile && !showFilters ? 'hidden' : 'block'}`}>
         <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-4 flex-wrap">
           <div className="flex items-center gap-2">
-            <Label className="text-sm text-gray-600 whitespace-nowrap">Market</Label>
-            <Select defaultValue="market">
+            <Label className="text-sm text-gray-600 whitespace-nowrap">Role</Label>
+            <Select value={filters.role} onValueChange={(value) => handleFilterChange('role', value)}>
               <SelectTrigger className="w-full md:w-32 bg-gray-100">
-                <SelectValue />
+                <SelectValue placeholder="All Roles" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="market">Market</SelectItem>
+                <SelectItem value="">All Roles</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="SUPER_MASTER">Super Master</SelectItem>
+                <SelectItem value="MASTER">Master</SelectItem>
+                <SelectItem value="CLIENT">Client</SelectItem>
+                <SelectItem value="VIEW_ONLY">View Only</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex items-center gap-2">
-            <Label className="text-sm text-gray-600 whitespace-nowrap">Broker</Label>
-            <Select defaultValue="">
+            <Label className="text-sm text-gray-600 whitespace-nowrap">Status</Label>
+            <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
               <SelectTrigger className="w-full md:w-32 bg-gray-100">
-                <SelectValue placeholder="Search" />
+                <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="search">Search</SelectItem>
+                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                <SelectItem value="BANNED">Banned</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="grid grid-cols-1 md:flex md:items-center gap-4 md:gap-2">
             <div className="flex items-center gap-2">
-              <Label className="text-sm text-gray-600 whitespace-nowrap">Join Before</Label>
+              <Label className="text-sm text-gray-600 whitespace-nowrap">Created After</Label>
               <div className="relative flex-1">
                 <Input
-                  type="text"
-                  defaultValue="10/12/2025"
+                  type="date"
                   className="w-full md:w-32 pr-8"
                 />
                 <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -240,11 +265,10 @@ export default function Master() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Label className="text-sm text-gray-600 whitespace-nowrap">Join After</Label>
+              <Label className="text-sm text-gray-600 whitespace-nowrap">Created Before</Label>
               <div className="relative flex-1">
                 <Input
-                  type="text"
-                  defaultValue="10/12/2025"
+                  type="date"
                   className="w-full md:w-32 pr-8"
                 />
                 <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -257,25 +281,37 @@ export default function Master() {
       {/* Show All entries */}
       <div className="bg-white px-4 md:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Show All entries</span>
+          <span className="text-sm text-gray-600">
+            {usersLoading ? 'Loading...' : `Showing ${users.length} of ${pagination.total} users`}
+          </span>
           <Button variant="outline" size="sm" className="h-6 w-6 p-0">
             <span className="text-xs">+</span>
           </Button>
         </div>
         <div className="flex items-center gap-2">
           <List className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
-          <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
+          <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" onClick={handleExport} />
         </div>
       </div>
 
       {/* Content */}
       <div className="p-4 md:p-6">
         <Card className="overflow-hidden">
-          {isMobile ? (
+          {usersLoading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading users...</p>
+            </div>
+          ) : users.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-gray-600 mb-2">No users found</p>
+              <p className="text-sm text-gray-500">Try adjusting your search filters</p>
+            </div>
+          ) : isMobile ? (
             // Mobile View - Cards
             <div className="p-4">
-              {masterData.map((master, index) => (
-                <MobileMasterCard key={index} master={master} index={index} />
+              {users.map((user: any, index: number) => (
+                <MobileMasterCard key={user.id} user={user} index={index} />
               ))}
             </div>
           ) : (
@@ -285,44 +321,62 @@ export default function Master() {
                 <TableHeader>
                   <TableRow className="bg-gray-50">
                     <TableHead>Name</TableHead>
-                    <TableHead>Login ID</TableHead>
-                    <TableHead>P (%)</TableHead>
-                    <TableHead>D. Count</TableHead>
-                    <TableHead>B. Count</TableHead>
-                    <TableHead>C. Count</TableHead>
-                    <TableHead>Master</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Login Time</TableHead>
-                    <TableHead>Login IP</TableHead>
-                    <TableHead>Join Time</TableHead>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Balance</TableHead>
+                    <TableHead>Created At</TableHead>
+                    <TableHead>Last Login</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {masterData.map((master, index) => (
-                    <TableRow key={index} className="hover:bg-gray-50">
-                      <TableCell className="font-medium">{master.date}</TableCell>
-                      <TableCell>{master.loginId}</TableCell>
-                      <TableCell>{master.p}</TableCell>
-                      <TableCell>{master.dCount}</TableCell>
-                      <TableCell>{master.bCount}</TableCell>
-                      <TableCell>{master.cCount}</TableCell>
-                      <TableCell>{master.master}</TableCell>
+                  {users.map((user: any) => (
+                    <TableRow key={user.id} className="hover:bg-gray-50">
+                      <TableCell className="font-medium">{user.firstName} {user.lastName}</TableCell>
+                      <TableCell>{user.username}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
+                          user.role === 'SUPER_MASTER' ? 'bg-blue-100 text-blue-800' :
+                          user.role === 'MASTER' ? 'bg-green-100 text-green-800' :
+                          user.role === 'CLIENT' ? 'bg-gray-100 text-gray-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {user.role}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          user.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                          user.status === 'INACTIVE' ? 'bg-gray-100 text-gray-800' :
+                          user.status === 'SUSPENDED' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {user.status}
+                        </span>
+                      </TableCell>
+                      <TableCell>₹{user.balance?.toLocaleString() || '0'}</TableCell>
+                      <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {master.actions.map((action, idx) => (
-                            <Button
-                              key={idx}
-                              size="sm"
-                              className="h-6 w-6 p-0 text-xs bg-gray-600 hover:bg-gray-700 text-white"
-                            >
-                              {action}
-                            </Button>
-                          ))}
+                          <Button size="sm" className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700 text-white">
+                            Edit
+                          </Button>
+                          <Button size="sm" className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white">
+                            Balance
+                          </Button>
+                          <Button size="sm" className="h-6 px-2 text-xs bg-yellow-600 hover:bg-yellow-700 text-white">
+                            Reset
+                          </Button>
+                          <Button size="sm" className="h-6 px-2 text-xs bg-gray-600 hover:bg-gray-700 text-white">
+                            View
+                          </Button>
                         </div>
                       </TableCell>
-                      <TableCell>{master.loginTime}</TableCell>
-                      <TableCell>{master.loginIp}</TableCell>
-                      <TableCell>{master.joinTime}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -330,6 +384,49 @@ export default function Master() {
             </div>
           )}
         </Card>
+
+        {/* Pagination */}
+        {!usersLoading && users.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
+            <div className="text-sm text-gray-600">
+              Page {pagination.page} of {pagination.totalPages} ({pagination.total} total users)
+            </div>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={pagination.page <= 1}
+                onClick={() => handlePageChange(pagination.page - 1)}
+                className="text-xs"
+              >
+                Previous
+              </Button>
+              {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                const pageNum = i + 1;
+                return (
+                  <Button 
+                    key={pageNum}
+                    variant="outline" 
+                    size="sm" 
+                    className={`text-xs ${pagination.page === pageNum ? 'bg-gray-100' : ''}`}
+                    onClick={() => handlePageChange(pageNum)}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => handlePageChange(pagination.page + 1)}
+                className="text-xs"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

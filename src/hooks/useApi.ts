@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { AxiosResponse } from "axios";
 
 
@@ -20,6 +20,18 @@ export function useApi<T = any>(
 ) {
   const { immediate = false, onSuccess, onError } = options;
   
+  // Store callbacks in refs to avoid triggering re-renders
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  const apiFunctionRef = useRef(apiFunction);
+  
+  // Update refs when callbacks change
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+    apiFunctionRef.current = apiFunction;
+  });
+  
   const [state, setState] = useState<ApiState<T>>({
     data: null,
     loading: false,
@@ -30,7 +42,7 @@ export function useApi<T = any>(
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      const response = await apiFunction(...args);
+      const response = await apiFunctionRef.current(...args);
       const data = response.data.data || response.data;
       
       setState({
@@ -39,8 +51,8 @@ export function useApi<T = any>(
         error: null,
       });
       
-      if (onSuccess) {
-        onSuccess(data);
+      if (onSuccessRef.current) {
+        onSuccessRef.current(data);
       }
       
       return data;
@@ -53,13 +65,13 @@ export function useApi<T = any>(
         error: errorMessage,
       });
       
-      if (onError) {
-        onError(errorMessage);
+      if (onErrorRef.current) {
+        onErrorRef.current(errorMessage);
       }
       
       throw error;
     }
-  }, [apiFunction, onSuccess, onError]);
+  }, []); // Empty dependency array - execute is now stable
 
   const reset = useCallback(() => {
     setState({

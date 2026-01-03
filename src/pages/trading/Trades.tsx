@@ -1,18 +1,59 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Download, List, Grid3x3, Pencil, Trash2, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react'
+import { Download, List, Grid3x3, Pencil, Trash2, Search, Filter, ChevronDown, ChevronUp, RefreshCw, Loader2 } from 'lucide-react'
+import { tradingApi, userApi } from '../../services/api'
+
+// Available segments for filtering
+const SEGMENTS = [
+  { id: '', name: 'All Segments' },
+  { id: 'NSE', name: 'NSE' },
+  { id: 'BSE', name: 'BSE' },
+  { id: 'NFO', name: 'NFO' },
+  { id: 'MCX', name: 'MCX' },
+  { id: 'CDS', name: 'CDS' },
+]
+import { useApi } from '../../hooks/useApi'
+import { toast } from 'react-toastify'
+
+interface Trade {
+  id: string
+  tradeNumber: string
+  userId: string
+  username: string
+  instrumentId: string
+  symbol: string
+  segment: string
+  side: string
+  quantity: number
+  price: number
+  value: number
+  commission: number
+  pnl: number
+  executedAt: string
+  status: string
+  ip?: string
+}
 
 export default function Trades() {
   const [showAllEntries, setShowAllEntries] = useState(false)
-  const [selectedTab, setSelectedTab] = useState('orders')
+  const [selectedTab, setSelectedTab] = useState('trades')
   const [isMobile, setIsMobile] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
-  const [expandedTrade, setExpandedTrade] = useState<number | null>(null)
+  const [expandedTrade, setExpandedTrade] = useState<string | null>(null)
+  const [filters, setFilters] = useState({
+    userId: '',
+    segmentId: '',
+    instrumentId: '',
+    startDate: '',
+    endDate: '',
+    page: 1,
+    limit: 50
+  })
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -25,64 +66,101 @@ export default function Trades() {
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
-  const tradesData = [
-    { 
-      id: 1, 
-      tradeBy: 'Client', 
-      time: '21:46:47', 
-      date: '09-10-2025', 
-      name: 'VT03(419261)', 
-      market: 'Market', 
-      symbol: 'SILVER 05DEC2025', 
-      type: 'S', 
-      lot: '1.00', 
-      qty: '20', 
-      modify: true,
-      cancel: true,
-      orderPrice: '149,704.000',
-      netP: '149,700.6667',
-      status: 'Executed',
-      ip: '192.168.1.1'
-    },
-    { 
-      id: 2, 
-      tradeBy: 'Client', 
-      time: '21:46:47', 
-      date: '09-10-2025', 
-      name: 'VT03(419261)', 
-      market: 'Market', 
-      symbol: 'SILVER 05DEC2025', 
-      type: 'S', 
-      lot: '1.00', 
-      qty: '20', 
-      modify: true,
-      cancel: true,
-      orderPrice: '149,704.000',
-      netP: '149,700.6667',
-      status: 'Executed',
-      ip: '192.168.1.2'
-    },
-    { 
-      id: 3, 
-      tradeBy: 'Client', 
-      time: '21:46:47', 
-      date: '09-10-2025', 
-      name: 'VT03(419261)', 
-      market: 'Market', 
-      symbol: 'SILVER 05DEC2025', 
-      type: 'S', 
-      lot: '1.00', 
-      qty: '20', 
-      modify: true,
-      cancel: true,
-      orderPrice: '149,704.000',
-      netP: '149,700.6667',
-      status: 'Executed',
-      ip: '192.168.1.3'
-    },
-  ]
+  // API calls
+  const { 
+    data: tradesResponse, 
+    loading: tradesLoading, 
+    execute: fetchTrades 
+  } = useApi(tradingApi.getAllTrades, { 
+    immediate: false,
+    onError: (error: string) => {
+      console.log('Trades endpoint error:', error)
+    }
+  })
 
-  const MobileTradeCard = ({ trade }: { trade: typeof tradesData[0] }) => (
+  const { data: usersResponse } = useApi(userApi.getUsers, { immediate: true })
+
+  // Fetch trades data
+  const loadTradesData = useCallback(() => {
+    const params: Record<string, any> = {
+      page: filters.page,
+      limit: filters.limit
+    }
+    if (filters.userId) params.userId = filters.userId
+    if (filters.segmentId) params.segmentId = filters.segmentId
+    if (filters.instrumentId) params.instrumentId = filters.instrumentId
+    if (filters.startDate) params.startDate = filters.startDate
+    if (filters.endDate) params.endDate = filters.endDate
+    fetchTrades(params)
+  }, [fetchTrades, filters])
+
+  useEffect(() => {
+    loadTradesData()
+  }, [loadTradesData])
+
+  // Auto-refresh every 5 seconds for real-time data
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadTradesData()
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [loadTradesData])
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value, page: 1 }))
+  }
+
+  const handleExport = () => {
+    toast.info('Export functionality coming soon')
+  }
+
+  // Process trades data from API response
+  const segments = SEGMENTS
+  const users = usersResponse?.data?.users || []
+  const instruments: any[] = [] // Instruments loaded dynamically based on segment
+  const rawTradesData = tradesResponse?.data?.trades || tradesResponse?.data || []
+  const pagination = tradesResponse?.data?.pagination || { page: 1, totalPages: 1, total: 0 }
+
+  // Transform trades data for display
+  const tradesData: Trade[] = Array.isArray(rawTradesData) ? rawTradesData.map((trade: any) => ({
+    id: trade.id || trade._id,
+    tradeNumber: trade.tradeNumber || `T${trade.id?.slice(-6) || '000000'}`,
+    userId: trade.userId,
+    username: trade.user?.username || trade.username || 'N/A',
+    instrumentId: trade.instrumentId,
+    symbol: trade.instrument?.symbol || trade.symbol || 'N/A',
+    segment: trade.instrument?.segment?.name || trade.segment || 'N/A',
+    side: trade.side,
+    quantity: trade.quantity,
+    price: trade.price,
+    value: trade.value,
+    commission: trade.commission || 0,
+    pnl: trade.pnl || 0,
+    executedAt: trade.executedAt || trade.createdAt,
+    status: trade.status || 'Executed',
+    ip: trade.ip || 'N/A'
+  })) : []
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value)
+  }
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return 'N/A'
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+
+  const formatTime = (dateStr: string) => {
+    if (!dateStr) return 'N/A'
+    const date = new Date(dateStr)
+    return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  }
+
+  const MobileTradeCard = ({ trade }: { trade: Trade }) => (
     <Card key={trade.id} className="p-4 mb-4">
       <div className="space-y-3">
         {/* Header */}
@@ -94,8 +172,8 @@ export default function Trades() {
               className="rounded-full w-4 h-4" 
             />
             <div>
-              <div className="font-medium text-sm">{trade.name}</div>
-              <div className="text-xs text-gray-500">{trade.date} • {trade.time}</div>
+              <div className="font-medium text-sm">{trade.username}</div>
+              <div className="text-xs text-gray-500">{formatDate(trade.executedAt)} • {formatTime(trade.executedAt)}</div>
             </div>
           </div>
           <Badge className="bg-green-100 text-green-700 hover:bg-green-200">
@@ -106,20 +184,22 @@ export default function Trades() {
         {/* Trade Details */}
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <span className="text-gray-500 text-xs">Trade By</span>
-            <div className="font-medium">{trade.tradeBy}</div>
+            <span className="text-gray-500 text-xs">Trade #</span>
+            <div className="font-medium">{trade.tradeNumber}</div>
           </div>
           <div>
-            <span className="text-gray-500 text-xs">Market</span>
-            <div className="font-medium">{trade.market}</div>
+            <span className="text-gray-500 text-xs">Segment</span>
+            <div className="font-medium">{trade.segment}</div>
           </div>
           <div>
             <span className="text-gray-500 text-xs">Symbol</span>
             <div className="font-medium">{trade.symbol}</div>
           </div>
           <div>
-            <span className="text-gray-500 text-xs">Type</span>
-            <Badge className="bg-blue-100 text-blue-700 text-xs">{trade.type}</Badge>
+            <span className="text-gray-500 text-xs">Side</span>
+            <Badge className={`text-xs ${trade.side === 'BUY' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {trade.side}
+            </Badge>
           </div>
         </div>
 
@@ -128,22 +208,28 @@ export default function Trades() {
           <div className="border-t pt-3 space-y-2 text-sm">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <span className="text-gray-500 text-xs">Lot</span>
-                <div className="font-medium">{trade.lot}</div>
+                <span className="text-gray-500 text-xs">Quantity</span>
+                <div className="font-medium">{trade.quantity}</div>
               </div>
               <div>
-                <span className="text-gray-500 text-xs">QTY</span>
-                <div className="font-medium">{trade.qty}</div>
+                <span className="text-gray-500 text-xs">Price</span>
+                <div className="font-medium">₹{formatCurrency(trade.price)}</div>
               </div>
               <div>
-                <span className="text-gray-500 text-xs">Order Price</span>
-                <div className="font-medium">{trade.orderPrice}</div>
+                <span className="text-gray-500 text-xs">Value</span>
+                <div className="font-medium">₹{formatCurrency(trade.value)}</div>
               </div>
               <div>
-                <span className="text-gray-500 text-xs">Net Price</span>
-                <div className="font-medium">{trade.netP}</div>
+                <span className="text-gray-500 text-xs">Commission</span>
+                <div className="font-medium">₹{formatCurrency(trade.commission)}</div>
               </div>
-              <div className="col-span-2">
+              <div>
+                <span className="text-gray-500 text-xs">P&L</span>
+                <div className={`font-medium ${trade.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  ₹{formatCurrency(trade.pnl)}
+                </div>
+              </div>
+              <div>
                 <span className="text-gray-500 text-xs">IP Address</span>
                 <div className="font-medium">{trade.ip}</div>
               </div>
@@ -180,9 +266,12 @@ export default function Trades() {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-800">Trades</h1>
           <div className="flex items-center gap-3">
-            <div className="relative w-80">
+            <h1 className="text-xl font-semibold text-gray-800">Trades</h1>
+            {tradesLoading && <Loader2 className="w-4 h-4 animate-spin text-gray-500" />}
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative w-80 hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 placeholder="Search trades..."
@@ -197,6 +286,9 @@ export default function Trades() {
             >
               <Filter className="w-4 h-4" />
             </Button>
+            <Button variant="outline" size="icon" className="h-10 w-10" onClick={loadTradesData}>
+              <RefreshCw className={`w-4 h-4 ${tradesLoading ? 'animate-spin' : ''}`} />
+            </Button>
             <Button variant="outline" size="icon" className="hidden md:flex h-10 w-10">
               <Grid3x3 className="w-4 h-4" />
             </Button>
@@ -205,11 +297,11 @@ export default function Trades() {
       </div>
 
       {/* Tab and Filters */}
-      <div className={`bg-white border-b border-gray-200 px-4 md:px-6 py-4 ${isMobile && !showFilters ? 'hidden' : 'block'}`}>
+      <div className={`bg-white border-b border-gray-200 px-4 md:px-6 py-4 ${isMobile && !showFilters ? 'hidden md:block' : 'block'}`}>
         <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-4 flex-wrap mb-4">
           <Select value={selectedTab} onValueChange={setSelectedTab}>
             <SelectTrigger className="w-full md:w-32">
-              <SelectValue placeholder="Orders" />
+              <SelectValue placeholder="Trades" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="orders">Orders</SelectItem>
@@ -219,55 +311,64 @@ export default function Trades() {
 
           <div className="grid grid-cols-1 md:flex md:items-center gap-4 md:gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 whitespace-nowrap">Trade after</span>
+              <span className="text-sm text-gray-600 whitespace-nowrap">From</span>
               <div className="relative flex-1">
                 <Input
-                  type="text"
-                  defaultValue="10/12/2025"
-                  className="w-full md:w-32 pr-8"
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                  className="w-full md:w-40"
                 />
-                <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 whitespace-nowrap">Trade before</span>
+              <span className="text-sm text-gray-600 whitespace-nowrap">To</span>
               <div className="relative flex-1">
                 <Input
-                  type="text"
-                  defaultValue="10/12/2025"
-                  className="w-full md:w-32 pr-8"
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                  className="w-full md:w-40"
                 />
-                <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:flex md:items-center gap-4 md:gap-2">
-            <Select defaultValue="">
+            <Select value={filters.segmentId} onValueChange={(v) => handleFilterChange('segmentId', v)}>
               <SelectTrigger className="w-full md:w-32">
                 <SelectValue placeholder="Market" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="market">Market</SelectItem>
+                <SelectItem value="">All Markets</SelectItem>
+                {segments.map((seg: any) => (
+                  <SelectItem key={seg.id} value={seg.id}>{seg.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
-            <Select defaultValue="">
+            <Select value={filters.instrumentId} onValueChange={(v) => handleFilterChange('instrumentId', v)}>
               <SelectTrigger className="w-full md:w-40">
                 <SelectValue placeholder="Script" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="script">Script name</SelectItem>
+                <SelectItem value="">All Scripts</SelectItem>
+                {instruments.slice(0, 50).map((inst: any) => (
+                  <SelectItem key={inst.id} value={inst.id}>{inst.symbol}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
-            <Select defaultValue="">
+            <Select value={filters.userId} onValueChange={(v) => handleFilterChange('userId', v)}>
               <SelectTrigger className="w-full md:w-32">
                 <SelectValue placeholder="Client" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="expiry">Expiry</SelectItem>
+                <SelectItem value="">All Clients</SelectItem>
+                {users.map((user: any) => (
+                  <SelectItem key={user.id} value={user.id}>{user.username}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -292,21 +393,28 @@ export default function Trades() {
           <div className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-200">
             <div className="flex items-center gap-2">
               <List className="w-4 h-4 text-gray-500" />
-              <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
+              <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" onClick={handleExport} />
             </div>
-            {isMobile && (
-              <div className="text-sm text-gray-600">
-                {tradesData.length} trades
-              </div>
-            )}
+            <div className="text-sm text-gray-600">
+              {tradesData.length} of {pagination.total || tradesData.length} trades
+            </div>
           </div>
           
           {isMobile ? (
             // Mobile View
             <div className="p-4">
-              {tradesData.map((trade) => (
-                <MobileTradeCard key={trade.id} trade={trade} />
-              ))}
+              {tradesLoading && tradesData.length === 0 ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+                  <span className="ml-2 text-gray-500">Loading trades...</span>
+                </div>
+              ) : tradesData.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No trades found</div>
+              ) : (
+                tradesData.map((trade) => (
+                  <MobileTradeCard key={trade.id} trade={trade} />
+                ))
+              )}
             </div>
           ) : (
             // Desktop View
@@ -315,54 +423,101 @@ export default function Trades() {
                 <TableHeader>
                   <TableRow className="bg-gray-50">
                     <TableHead className="font-semibold text-gray-700 min-w-[50px]">D ▼</TableHead>
-                    <TableHead className="font-semibold text-gray-700 min-w-[100px]">Trade by</TableHead>
+                    <TableHead className="font-semibold text-gray-700 min-w-[100px]">Trade #</TableHead>
                     <TableHead className="font-semibold text-gray-700 min-w-[80px]">Time</TableHead>
                     <TableHead className="font-semibold text-gray-700 min-w-[100px]">Date</TableHead>
-                    <TableHead className="font-semibold text-gray-700 min-w-[120px]">Name</TableHead>
-                    <TableHead className="font-semibold text-gray-700 min-w-[100px]">Market</TableHead>
+                    <TableHead className="font-semibold text-gray-700 min-w-[120px]">User</TableHead>
+                    <TableHead className="font-semibold text-gray-700 min-w-[100px]">Segment</TableHead>
                     <TableHead className="font-semibold text-gray-700 min-w-[150px]">Symbol</TableHead>
-                    <TableHead className="font-semibold text-gray-700 min-w-[60px]">Type</TableHead>
-                    <TableHead className="font-semibold text-gray-700 min-w-[60px]">Lot</TableHead>
+                    <TableHead className="font-semibold text-gray-700 min-w-[60px]">Side</TableHead>
                     <TableHead className="font-semibold text-gray-700 min-w-[60px]">QTY</TableHead>
-                    <TableHead className="font-semibold text-gray-700 min-w-[80px]">Modify</TableHead>
-                    <TableHead className="font-semibold text-gray-700 min-w-[80px]">Cancel</TableHead>
-                    <TableHead className="font-semibold text-gray-700 min-w-[120px]">Order Price</TableHead>
-                    <TableHead className="font-semibold text-gray-700 min-w-[120px]">Net P</TableHead>
+                    <TableHead className="font-semibold text-gray-700 min-w-[120px]">Price</TableHead>
+                    <TableHead className="font-semibold text-gray-700 min-w-[120px]">Value</TableHead>
+                    <TableHead className="font-semibold text-gray-700 min-w-[100px]">P&L</TableHead>
                     <TableHead className="font-semibold text-gray-700 min-w-[100px]">Status</TableHead>
-                    <TableHead className="font-semibold text-gray-700 min-w-[100px]">IP</TableHead>
+                    <TableHead className="font-semibold text-gray-700 min-w-[80px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tradesData.map((row) => (
-                    <TableRow key={row.id} className="hover:bg-gray-50">
-                      <TableCell>
-                        <input type="radio" name="trade" className="rounded-full" />
+                  {tradesLoading && tradesData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={14} className="text-center py-8">
+                        <div className="flex items-center justify-center">
+                          <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+                          <span className="ml-2 text-gray-500">Loading trades...</span>
+                        </div>
                       </TableCell>
-                      <TableCell className="font-medium">{row.tradeBy}</TableCell>
-                      <TableCell>{row.time}</TableCell>
-                      <TableCell>{row.date}</TableCell>
-                      <TableCell>{row.name}</TableCell>
-                      <TableCell>{row.market}</TableCell>
-                      <TableCell>{row.symbol}</TableCell>
-                      <TableCell>
-                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200">{row.type}</Badge>
-                      </TableCell>
-                      <TableCell>{row.lot}</TableCell>
-                      <TableCell>{row.qty}</TableCell>
-                      <TableCell>
-                        <Pencil className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-700" />
-                      </TableCell>
-                      <TableCell>
-                        <Trash2 className="w-4 h-4 text-gray-400 cursor-pointer hover:text-red-600" />
-                      </TableCell>
-                      <TableCell>{row.orderPrice}</TableCell>
-                      <TableCell>{row.netP}</TableCell>
-                      <TableCell>{row.status}</TableCell>
-                      <TableCell>{row.ip}</TableCell>
                     </TableRow>
-                  ))}
+                  ) : tradesData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={14} className="text-center py-8 text-gray-500">
+                        No trades found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    tradesData.map((row) => (
+                      <TableRow key={row.id} className="hover:bg-gray-50">
+                        <TableCell>
+                          <input type="radio" name="trade" className="rounded-full" />
+                        </TableCell>
+                        <TableCell className="font-medium">{row.tradeNumber}</TableCell>
+                        <TableCell>{formatTime(row.executedAt)}</TableCell>
+                        <TableCell>{formatDate(row.executedAt)}</TableCell>
+                        <TableCell>{row.username}</TableCell>
+                        <TableCell>{row.segment}</TableCell>
+                        <TableCell>{row.symbol}</TableCell>
+                        <TableCell>
+                          <Badge className={row.side === 'BUY' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                            {row.side}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{row.quantity}</TableCell>
+                        <TableCell>₹{formatCurrency(row.price)}</TableCell>
+                        <TableCell>₹{formatCurrency(row.value)}</TableCell>
+                        <TableCell className={row.pnl >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          ₹{formatCurrency(row.pnl)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="bg-green-100 text-green-700">{row.status}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Pencil className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-700" />
+                            <Trash2 className="w-4 h-4 text-gray-400 cursor-pointer hover:text-red-600" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="text-sm text-gray-500">
+                Page {pagination.page} of {pagination.totalPages}
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  disabled={pagination.page <= 1}
+                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+                >
+                  Previous
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  disabled={pagination.page >= pagination.totalPages}
+                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </Card>

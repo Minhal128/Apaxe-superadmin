@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { 
   LayoutDashboard, 
   TrendingUp, 
@@ -31,6 +32,7 @@ interface SuperAdminLayoutProps {
 export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { isAuthenticated, isLoading, logout, user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [tradingOpen, setTradingOpen] = useState(true)
   const [forexOpen, setForexOpen] = useState(false)
@@ -60,6 +62,30 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
       setReportsOpen(true)
     }
   }, [location.pathname])
+
+  // Redirect to signin if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/signin')
+    }
+  }, [isAuthenticated, isLoading, navigate])
+
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render if not authenticated
+  if (!isAuthenticated) {
+    return null
+  }
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -143,6 +169,13 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
             }
           }/>
         </div>
+        {/* User Info */}
+        {user && (
+          <div className="mt-3 text-center">
+            <p className="text-sm font-medium text-gray-900">{user.username}</p>
+            <p className="text-xs text-gray-500">{user.role}</p>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
@@ -441,7 +474,7 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
 
           {/* Logout Button */}
           <button
-            onClick={() => navigate('/')}
+            onClick={logout}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-gray-700 hover:bg-gray-100 mt-2"
           >
             <LogOut size={18} />

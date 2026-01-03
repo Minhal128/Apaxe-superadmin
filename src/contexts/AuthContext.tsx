@@ -2,6 +2,9 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { authApi, wsService } from '../services/api';
 import { toast } from 'react-toastify';
 
+// Allowed roles for this panel
+const ALLOWED_ROLES = ['ADMIN', 'SUPER_MASTER', 'MASTER'];
+
 // Types
 interface User {
   id: string;
@@ -30,7 +33,7 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  login: (credentials: { email: string; password: string }) => Promise<void>;
+  login: (credentials: { email: string; password: string; expectedRole?: string }) => Promise<void>;
   logout: () => void;
   refreshToken: () => Promise<void>;
 }
@@ -141,16 +144,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Login function
-  const login = async (credentials: { email: string; password: string }) => {
+  const login = async (credentials: { email: string; password: string; expectedRole?: string }) => {
     try {
       dispatch({ type: 'LOGIN_START' });
       
-      const response = await authApi.login(credentials);
+      const response = await authApi.login({ email: credentials.email, password: credentials.password });
       const { user, accessToken } = response.data.data;
       
-      // Validate user role - only ADMIN can access superadmin panel
-      if (user.role !== 'ADMIN') {
-        throw new Error('Access denied. Only administrators can access this panel.');
+      // Validate user role - only ADMIN, SUPER_MASTER, MASTER can access this panel
+      if (!ALLOWED_ROLES.includes(user.role)) {
+        throw new Error('Access denied. You do not have permission to access this panel.');
+      }
+      
+      // Validate that user role matches the selected role (if expectedRole is provided)
+      if (credentials.expectedRole && user.role !== credentials.expectedRole) {
+        const roleLabels: Record<string, string> = {
+          ADMIN: 'Super Admin',
+          SUPER_MASTER: 'Admin',
+          MASTER: 'Master',
+        };
+        throw new Error(`Access denied. You selected ${roleLabels[credentials.expectedRole] || credentials.expectedRole} but your account is ${roleLabels[user.role] || user.role}.`);
       }
       
       localStorage.setItem('superadmin_token', accessToken);
