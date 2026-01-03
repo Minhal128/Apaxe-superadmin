@@ -241,12 +241,12 @@ export default function ForexTrade() {
           <div className="grid grid-cols-1 md:flex md:items-center gap-4 md:gap-2">
             <div className="flex items-center gap-2">
               <Label className="text-sm text-gray-600 whitespace-nowrap">Currency Pair</Label>
-              <Select value={filters.currencyPair} onValueChange={(value) => handleFilterChange('currencyPair', value)}>
+              <Select value={filters.currencyPair || 'all'} onValueChange={(value) => handleFilterChange('currencyPair', value === 'all' ? '' : value)}>
                 <SelectTrigger className="w-full md:w-32 bg-gray-100">
                   <SelectValue placeholder="All Pairs" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Pairs</SelectItem>
+                  <SelectItem value="all">All Pairs</SelectItem>
                   <SelectItem value="EURUSD">EUR/USD</SelectItem>
                   <SelectItem value="GBPUSD">GBP/USD</SelectItem>
                   <SelectItem value="USDJPY">USD/JPY</SelectItem>
@@ -258,12 +258,12 @@ export default function ForexTrade() {
 
             <div className="flex items-center gap-2">
               <Label className="text-sm text-gray-600 whitespace-nowrap">User</Label>
-              <Select value={filters.userId} onValueChange={(value) => handleFilterChange('userId', value)}>
+              <Select value={filters.userId || 'all'} onValueChange={(value) => handleFilterChange('userId', value === 'all' ? '' : value)}>
                 <SelectTrigger className="w-full md:w-40 bg-gray-100">
                   <SelectValue placeholder="All Users" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Users</SelectItem>
+                  <SelectItem value="all">All Users</SelectItem>
                   {/* Users will be populated from API */}
                 </SelectContent>
               </Select>

@@ -2,178 +2,196 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
+import { useState } from 'react'
+import { reportsApi, formatDate, formatCurrency } from '@/services/api'
+import { toast } from 'sonner'
+import { Loader2, Download } from 'lucide-react'
 
 export default function TradeReport() {
+  const [loading, setLoading] = useState(false)
+  const [reportData, setReportData] = useState<any[]>([])
+  const [filters, setFilters] = useState({
+    customer: '',
+    master: '',
+    script: '',
+    segment: '',
+    startDate: '',
+    endDate: '',
+  })
+
+  const handleViewReport = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const response = await reportsApi.getTradeReport({
+        userId: filters.customer || undefined,
+        segmentId: filters.segment || undefined,
+        startDate: filters.startDate || undefined,
+        endDate: filters.endDate || undefined,
+      })
+      setReportData(response.data)
+      if (response.data.length === 0) {
+        toast.info('No trades found for the selected filters')
+      } else {
+        toast.success(`Found ${response.data.length} trades`)
+      }
+    } catch (error) {
+      toast.error('Failed to fetch trade report')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleExport = async (format: 'excel' | 'pdf') => {
+    try {
+      const response = await reportsApi.getTradeReport({
+        ...filters,
+        format
+      })
+      // The browser will handle the download if we use the blob response
+      const blob = new Blob([response.data], { type: format === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `trade-report-${new Date().getTime()}.${format === 'excel' ? 'xlsx' : 'pdf'}`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (error) {
+      toast.error(`Failed to export as ${format.toUpperCase()}`)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-lg sm:text-xl font-semibold text-gray-800">Trade Report</h1>
-          <Input
-            type="text"
-            placeholder="Search"
-            className="w-full sm:w-64 h-10"
-          />
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => handleExport('excel')} disabled={reportData.length === 0}>
+              <Download className="w-4 h-4 mr-2" />
+              Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleExport('pdf')} disabled={reportData.length === 0}>
+              <Download className="w-4 h-4 mr-2" />
+              PDF
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-4 sm:p-6">
+      <div className="p-4 sm:p-6 space-y-6">
         <Card className="p-4 sm:p-6">
-          <form className="space-y-4 sm:space-y-6">
-            {/* First Row - Report, Valan, Select */}
+          <form className="space-y-4 sm:space-y-6" onSubmit={handleViewReport}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="report" className="text-sm sm:text-base">Report</Label>
-                <Select>
-                  <SelectTrigger id="report" className="h-10 sm:h-11">
-                    <SelectValue placeholder="Select report" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="report1">Report 1</SelectItem>
-                    <SelectItem value="report2">Report 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="valan" className="text-sm sm:text-base">Valan</Label>
-                <Select>
-                  <SelectTrigger id="valan" className="h-10 sm:h-11">
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="valan1">Valan 1</SelectItem>
-                    <SelectItem value="valan2">Valan 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="select" className="text-sm sm:text-base">Select</Label>
-                <Select>
-                  <SelectTrigger id="select" className="h-10 sm:h-11">
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="option1">Option 1</SelectItem>
-                    <SelectItem value="option2">Option 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Second Row - Customer, Master, Script */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="customer" className="text-sm sm:text-base">Customer</Label>
+                <Label htmlFor="customer" className="text-sm">Customer ID (Search)</Label>
                 <Input
                   id="customer"
                   type="text"
-                  placeholder="Enter customer"
-                  className="h-10 sm:h-11"
+                  placeholder="Enter customer ID"
+                  className="h-10"
+                  value={filters.customer}
+                  onChange={(e) => setFilters({ ...filters, customer: e.target.value })}
                 />
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="master" className="text-sm sm:text-base">Master</Label>
-                <Input
-                  id="master"
-                  type="text"
-                  placeholder="Enter master"
-                  className="h-10 sm:h-11"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="script" className="text-sm sm:text-base">Script</Label>
+                <Label htmlFor="script" className="text-sm">Script / Symbol</Label>
                 <Input
                   id="script"
                   type="text"
                   placeholder="Enter script"
-                  className="h-10 sm:h-11"
+                  className="h-10"
+                  value={filters.script}
+                  onChange={(e) => setFilters({ ...filters, script: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="segment" className="text-sm">Segment</Label>
+                <Select onValueChange={(val) => setFilters({ ...filters, segment: val })}>
+                  <SelectTrigger id="segment" className="h-10">
+                    <SelectValue placeholder="Select segment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NSE">NSE</SelectItem>
+                    <SelectItem value="MCX">MCX</SelectItem>
+                    <SelectItem value="FOREX">FOREX</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="startDate" className="text-sm">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  className="h-10"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="endDate" className="text-sm">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  className="h-10"
+                  value={filters.endDate}
+                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
                 />
               </div>
             </div>
 
-            {/* Third Row - Segment, Select Broker */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="segment" className="text-sm sm:text-base">Segment</Label>
-                <Select>
-                  <SelectTrigger id="segment" className="h-10 sm:h-11">
-                    <SelectValue placeholder="Select segment" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="segment1">Segment 1</SelectItem>
-                    <SelectItem value="segment2">Segment 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="selectBroker" className="text-sm sm:text-base">Select Broker</Label>
-                <Select>
-                  <SelectTrigger id="selectBroker" className="h-10 sm:h-11">
-                    <SelectValue placeholder="Select broker" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="broker1">Broker 1</SelectItem>
-                    <SelectItem value="broker2">Broker 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Report Type Radio */}
-            <div className="grid gap-2">
-              <Label className="text-sm sm:text-base">Report Type</Label>
-              <RadioGroup defaultValue="holding" className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="holding" id="holding" />
-                  <Label htmlFor="holding" className="font-normal cursor-pointer text-sm sm:text-base">
-                    Holding
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="payment" id="payment" />
-                  <Label htmlFor="payment" className="font-normal cursor-pointer text-sm sm:text-base">
-                    Payment
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {/* Date Type Radio */}
-            <div className="grid gap-2">
-              <Label className="text-sm sm:text-base">Date Type</Label>
-              <RadioGroup defaultValue="datewise" className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="datewise" id="datewise" />
-                  <Label htmlFor="datewise" className="font-normal cursor-pointer text-sm sm:text-base">
-                    Date wise
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="alldata" id="alldata" />
-                  <Label htmlFor="alldata" className="font-normal cursor-pointer text-sm sm:text-base">
-                    All Data
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {/* View Report Button */}
             <div className="pt-4">
-              <Button className="bg-green-500 hover:bg-green-600 text-white h-10 sm:h-11 w-full sm:w-auto px-8">
-                View Report
+              <Button type="submit" className="bg-green-500 hover:bg-green-600 text-white h-10 px-8" disabled={loading}>
+                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Fetching...</> : 'View Report'}
               </Button>
             </div>
           </form>
         </Card>
+
+        {reportData.length > 0 && (
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Trade #</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Instrument</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Side</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Qty</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Price</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Value</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportData.map((trade: any, idx: number) => (
+                    <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{trade.tradeNumber}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{trade.instrument}</td>
+                      <td className={`px-4 py-3 text-sm font-bold ${trade.side === 'BUY' ? 'text-green-600' : 'text-red-600'}`}>
+                        {trade.side}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{trade.quantity}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(trade.price)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(trade.value)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{formatDate(trade.executedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   )

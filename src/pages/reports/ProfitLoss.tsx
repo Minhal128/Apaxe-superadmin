@@ -2,24 +2,23 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Download, List } from 'lucide-react'
+import { ChevronDown, ChevronUp, Download, List, Loader2 } from 'lucide-react'
+import { reportsApi } from '@/services/api'
+import { useApi } from '@/hooks/useApi'
 
 export default function ProfitLoss() {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [expandedRows, setExpandedRows] = useState<number[]>([])
+  const { data: apiResponse, loading } = useApi(reportsApi.getPnLReport, { immediate: true })
 
   const toggleRow = (index: number) => {
-    setExpandedRows(prev => 
+    setExpandedRows(prev =>
       prev.includes(index) ? prev.filter(item => item !== index) : [...prev, index]
     )
   }
 
-  const profitLossData = [
-    { user: '6456737', percentageProfit: '20/10/2025', marginUsed: '20/10/2025', netPNL: '103.215.156.14' },
-    { user: '6456738', percentageProfit: '21/10/2025', marginUsed: '21/10/2025', netPNL: '103.215.156.15' },
-    { user: '6456739', percentageProfit: '22/10/2025', marginUsed: '22/10/2025', netPNL: '103.215.156.16' },
-    { user: '6456740', percentageProfit: '23/10/2025', marginUsed: '23/10/2025', netPNL: '103.215.156.17' },
-  ]
+  // Extract the actual data array from the API response
+  const pnlData = Array.isArray(apiResponse) ? apiResponse : (apiResponse?.data || [])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -59,15 +58,15 @@ export default function ProfitLoss() {
 
       {/* Mobile Filters Toggle */}
       <div className="sm:hidden bg-white border-b border-gray-200 px-4 py-3">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="w-full justify-between"
           onClick={() => setIsFiltersOpen(!isFiltersOpen)}
         >
           <span>Filters</span>
           <ChevronDown className={`w-4 h-4 transform transition-transform ${isFiltersOpen ? 'rotate-180' : ''}`} />
         </Button>
-        
+
         {/* Collapsible Filters for Mobile */}
         {isFiltersOpen && (
           <div className="mt-4 space-y-3">
@@ -94,10 +93,8 @@ export default function ProfitLoss() {
       {/* Show All entries */}
       <div className="bg-white px-4 sm:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Show All entries</span>
-          <Button variant="outline" size="sm" className="h-6 w-6 p-0">
-            <span className="text-xs">+</span>
-          </Button>
+          <span className="text-sm text-gray-600">P&L Report</span>
+          {loading && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
         </div>
         <div className="flex items-center gap-2">
           <List className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
@@ -120,12 +117,12 @@ export default function ProfitLoss() {
                 </tr>
               </thead>
               <tbody>
-                {profitLossData.map((item, index) => (
+                {(pnlData || []).map((item: any, index: number) => (
                   <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900">{item.user}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.percentageProfit}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.marginUsed}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.netPNL}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900">{item.user || '-'}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.percentageProfit || '-'}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.marginUsed || '-'}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.netPNL || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -134,10 +131,10 @@ export default function ProfitLoss() {
 
           {/* Mobile Cards */}
           <div className="lg:hidden">
-            {profitLossData.map((item, index) => (
+            {(pnlData || []).map((item: any, index: number) => (
               <Card key={index} className="m-4 overflow-hidden">
                 {/* Header - Always Visible */}
-                <div 
+                <div
                   className="p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50"
                   onClick={() => toggleRow(index)}
                 >
@@ -147,17 +144,16 @@ export default function ProfitLoss() {
                         <span className="text-sm font-medium text-gray-700">{index + 1}</span>
                       </div>
                       <div>
-                        <div className="font-semibold text-gray-900">{item.user}</div>
+                        <div className="font-semibold text-gray-900">{item.user || 'Unknown'}</div>
                         <div className="text-sm text-gray-500">User ID</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium px-2 py-1 rounded ${
-                        parseFloat(item.netPNL.split('.')[0]) >= 0 
-                          ? 'text-green-600 bg-green-50' 
-                          : 'text-red-600 bg-red-50'
-                      }`}>
-                        {item.netPNL.split('.')[0]}
+                      <span className={`text-sm font-medium px-2 py-1 rounded ${item.netPNL && parseFloat(String(item.netPNL).split('.')[0]) >= 0
+                        ? 'text-green-600 bg-green-50'
+                        : 'text-red-600 bg-red-50'
+                        }`}>
+                        {item.netPNL ? String(item.netPNL).split('.')[0] : '0'}
                       </span>
                       {expandedRows.includes(index) ? (
                         <ChevronUp className="w-4 h-4 text-gray-500" />
@@ -174,23 +170,22 @@ export default function ProfitLoss() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div className="space-y-1">
                         <span className="font-medium text-gray-500">Percentage Profit:</span>
-                        <p className="text-gray-900 font-semibold">{item.percentageProfit}</p>
+                        <p className="text-gray-900 font-semibold">{item.percentageProfit || '0%'}</p>
                       </div>
                       <div className="space-y-1">
                         <span className="font-medium text-gray-500">Margin Used:</span>
-                        <p className="text-gray-900 font-semibold">{item.marginUsed}</p>
+                        <p className="text-gray-900 font-semibold">{item.marginUsed || '0'}</p>
                       </div>
                     </div>
-                    
+
                     <div className="pt-3 border-t border-gray-200">
                       <div className="space-y-1">
                         <span className="font-medium text-gray-500">Net PNL:</span>
-                        <p className={`text-lg font-bold ${
-                          parseFloat(item.netPNL.split('.')[0]) >= 0 
-                            ? 'text-green-600' 
-                            : 'text-red-600'
-                        }`}>
-                          {item.netPNL}
+                        <p className={`text-lg font-bold ${item.netPNL && parseFloat(String(item.netPNL).split('.')[0]) >= 0
+                          ? 'text-green-600'
+                          : 'text-red-600'
+                          }`}>
+                          {item.netPNL || '0'}
                         </p>
                       </div>
                     </div>
@@ -211,7 +206,7 @@ export default function ProfitLoss() {
           </div>
 
           {/* Empty State */}
-          {profitLossData.length === 0 && (
+          {(!pnlData || pnlData.length === 0) && (
             <div className="p-8 text-center">
               <div className="text-gray-400 mb-2">No profit/loss data available</div>
               <div className="text-sm text-gray-500">Try adjusting your search filters</div>
@@ -222,7 +217,7 @@ export default function ProfitLoss() {
         {/* Pagination - Mobile Friendly */}
         <div className="flex items-center justify-between mt-6">
           <div className="text-sm text-gray-600">
-            Showing {profitLossData.length} entries
+            Showing {pnlData?.length || 0} entries
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled className="text-xs">

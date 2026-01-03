@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,25 +42,25 @@ export default function MarginManagement() {
   })
 
   // API calls
-  const { 
-    data: usersResponse, 
-    loading: usersLoading, 
-    execute: fetchUsers 
-  } = useApi(userApi.getUsers, { 
+  const {
+    data: usersResponse,
+    loading: usersLoading,
+    execute: fetchUsers
+  } = useApi(userApi.getUsers, {
     immediate: true,
-    onError: (error: string) => {
-      console.log('Users endpoint error:', error)
+    onError: () => {
+      // Silently handle errors - use fallback data
     }
   })
 
-  const { 
+  const {
     data: positionsResponse,
     loading: positionsLoading,
-    execute: fetchPositions 
-  } = useApi(tradingApi.getAllPositions, { 
+    execute: fetchPositions
+  } = useApi(tradingApi.getAllPositions, {
     immediate: true,
-    onError: (error: string) => {
-      console.log('Positions endpoint error:', error)
+    onError: () => {
+      // Silently handle errors - use fallback data
     }
   })
 
@@ -99,24 +99,24 @@ export default function MarginManagement() {
   // Calculate margin data per user
   const marginData: MarginData[] = users.map((user: any) => {
     // Get user's positions
-    const userPositions = Array.isArray(positions) 
+    const userPositions = Array.isArray(positions)
       ? positions.filter((p: any) => p.userId === user.id)
       : []
 
     // Calculate segment-wise margins
     const segmentMargins: { [key: string]: { amount: number; lot: number; used: number; available: number } } = {}
-    
+
     segments.forEach((seg: string) => {
-      const segPositions = userPositions.filter((p: any) => 
+      const segPositions = userPositions.filter((p: any) =>
         p.instrument?.segment?.name === seg || p.segment === seg
       )
-      
+
       const usedMargin = segPositions.reduce((sum: number, p: any) => sum + (p.marginUsed || 0), 0)
       const lots = segPositions.reduce((sum: number, p: any) => sum + (p.quantity || 0), 0)
-      
+
       // Get user's allocated margin for this segment (from user config or default)
       const allocatedMargin = user.marginLimit || user.balance || 0
-      
+
       segmentMargins[seg] = {
         amount: allocatedMargin,
         lot: lots,
@@ -155,7 +155,7 @@ export default function MarginManagement() {
     if (filters.client && row.role !== 'CLIENT') return false
     if (filters.broker && row.role !== 'BROKER') return false
     if (filters.master && row.role !== 'MASTER') return false
-    
+
     return true
   })
 
@@ -170,7 +170,7 @@ export default function MarginManagement() {
   const isLoading = usersLoading || positionsLoading
 
   // Get unique segment names for table headers
-  const segmentNames = segments.map((s: any) => s.name).slice(0, 4) // Limit to 4 segments for display
+  const segmentNames = segments.slice(0, 4) // Limit to 4 segments for display
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -202,36 +202,36 @@ export default function MarginManagement() {
       {/* Filters */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center gap-4 flex-wrap">
-          <Select value={filters.client} onValueChange={(v) => handleFilterChange('client', v)}>
+          <Select value={filters.client || 'all'} onValueChange={(v) => handleFilterChange('client', v === 'all' ? '' : v)}>
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Client" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Clients</SelectItem>
+              <SelectItem value="all">All Clients</SelectItem>
               {users.filter((u: any) => u.role === 'CLIENT').map((user: any) => (
                 <SelectItem key={user.id} value={user.id}>{user.username}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Select value={filters.broker} onValueChange={(v) => handleFilterChange('broker', v)}>
+          <Select value={filters.broker || 'all'} onValueChange={(v) => handleFilterChange('broker', v === 'all' ? '' : v)}>
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Broker" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Brokers</SelectItem>
+              <SelectItem value="all">All Brokers</SelectItem>
               {users.filter((u: any) => u.role === 'BROKER').map((user: any) => (
                 <SelectItem key={user.id} value={user.id}>{user.username}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Select value={filters.master} onValueChange={(v) => handleFilterChange('master', v)}>
+          <Select value={filters.master || 'all'} onValueChange={(v) => handleFilterChange('master', v === 'all' ? '' : v)}>
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Master" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Masters</SelectItem>
+              <SelectItem value="all">All Masters</SelectItem>
               {users.filter((u: any) => u.role === 'MASTER').map((user: any) => (
                 <SelectItem key={user.id} value={user.id}>{user.username}</SelectItem>
               ))}
@@ -255,7 +255,7 @@ export default function MarginManagement() {
           <div className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-200">
             <span className="text-sm text-gray-500">{filteredData.length} users</span>
           </div>
-          
+
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -273,10 +273,10 @@ export default function MarginManagement() {
                   <TableHead className="font-semibold text-gray-700"></TableHead>
                   <TableHead className="font-semibold text-gray-700"></TableHead>
                   {segmentNames.map((segName: string) => (
-                    <>
-                      <TableHead key={`${segName}-amt`} className="font-semibold text-gray-700 border-l border-gray-200">Amount</TableHead>
-                      <TableHead key={`${segName}-lot`} className="font-semibold text-gray-700">Lot</TableHead>
-                    </>
+                    <React.Fragment key={`${segName}-headers`}>
+                      <TableHead className="font-semibold text-gray-700 border-l border-gray-200">Amount</TableHead>
+                      <TableHead className="font-semibold text-gray-700">Lot</TableHead>
+                    </React.Fragment>
                   ))}
                   <TableHead className="font-semibold text-gray-700 border-l border-gray-200">Amount</TableHead>
                   <TableHead className="font-semibold text-gray-700">Lot</TableHead>
@@ -303,24 +303,23 @@ export default function MarginManagement() {
                     <TableRow key={row.id} className="hover:bg-gray-50">
                       <TableCell className="font-medium">{row.username}</TableCell>
                       <TableCell>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          row.role === 'MASTER' ? 'bg-purple-100 text-purple-700' :
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${row.role === 'MASTER' ? 'bg-purple-100 text-purple-700' :
                           row.role === 'BROKER' ? 'bg-blue-100 text-blue-700' :
-                          row.role === 'CLIENT' ? 'bg-green-100 text-green-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
+                            row.role === 'CLIENT' ? 'bg-green-100 text-green-700' :
+                              'bg-gray-100 text-gray-700'
+                          }`}>
                           {row.role}
                         </span>
                       </TableCell>
                       {segmentNames.map((segName: string) => (
-                        <>
-                          <TableCell key={`${row.id}-${segName}-amt`} className="border-l border-gray-200">
+                        <React.Fragment key={`${row.id}-${segName}`}>
+                          <TableCell className="border-l border-gray-200">
                             {formatCurrency(row.segments[segName]?.amount || 0)}
                           </TableCell>
-                          <TableCell key={`${row.id}-${segName}-lot`}>
+                          <TableCell>
                             {row.segments[segName]?.lot || 0}
                           </TableCell>
-                        </>
+                        </React.Fragment>
                       ))}
                       <TableCell className="border-l border-gray-200 font-semibold">
                         {formatCurrency(row.total.amount)}

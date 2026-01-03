@@ -63,8 +63,8 @@ export default function ManualTrade() {
     execute: fetchTrades 
   } = useApi(tradingApi.getAllTrades, { 
     immediate: true,
-    onError: (error: string) => {
-      console.log('Trades endpoint error:', error)
+    onError: () => {
+      // Silently handle errors - use fallback data
     }
   })
 

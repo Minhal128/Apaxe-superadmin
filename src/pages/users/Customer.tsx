@@ -136,12 +136,12 @@ export default function Customer() {
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
             <Label className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">Market</Label>
-            <Select value={selectedMarket} onValueChange={setSelectedMarket}>
+            <Select value={selectedMarket || 'all'} onValueChange={(v) => setSelectedMarket(v === 'all' ? '' : v)}>
               <SelectTrigger className="w-full bg-gray-100 text-xs sm:text-sm h-8 sm:h-10">
                 <SelectValue placeholder="All Markets" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Markets</SelectItem>
+                <SelectItem value="all">All Markets</SelectItem>
                 <SelectItem value="NSE">NSE</SelectItem>
                 <SelectItem value="BSE">BSE</SelectItem>
                 <SelectItem value="MCX">MCX</SelectItem>
@@ -153,12 +153,12 @@ export default function Customer() {
 
           <div className="flex items-center gap-2">
             <Label className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">Status</Label>
-            <Select defaultValue="">
+            <Select defaultValue="all">
               <SelectTrigger className="w-full bg-gray-100 text-xs sm:text-sm h-8 sm:h-10">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="ACTIVE">Active</SelectItem>
                 <SelectItem value="INACTIVE">Inactive</SelectItem>
                 <SelectItem value="SUSPENDED">Suspended</SelectItem>

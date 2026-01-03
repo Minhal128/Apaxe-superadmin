@@ -4,47 +4,52 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Label } from '@/components/ui/label'
-import { Calendar, Download, List, ChevronDown, ChevronUp } from 'lucide-react'
-import { useState } from 'react'
+import { Download, List, ChevronDown, ChevronUp, RefreshCw, Loader2, Search } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { userApi } from '../../services/api'
+import { usePaginatedApi } from '../../hooks/useApi'
 
 export default function Broker() {
   const [expandedRows, setExpandedRows] = useState<number[]>([])
 
-  const brokerData = [
-    { 
-      date: '09-10-2025',
-      loginId: '161422',
-      p: '1',
-      cCount: '0',
-      master: 'DEMO MST-01-Master (706730)',
+  const [searchTerm, setSearchTerm] = useState('')
+  const [joinBefore, setJoinBefore] = useState('')
+  const [joinAfter, setJoinAfter] = useState('')
+
+  const {
+    data: brokers,
+    meta,
+    loading,
+    updateFilters,
+    refresh
+  } = usePaginatedApi(
+    (params) => userApi.getUsers({
+      ...params,
+      role: 'MASTER',
+      search: searchTerm,
+    }),
+    { page: 1, limit: 50 }
+  )
+
+  const handleSearch = (value: string) => {
+    setSearchTerm(value)
+    updateFilters({ search: value })
+  }
+
+  const brokerData = useMemo(() => {
+    return brokers.map((user: any) => ({
+      id: user.id,
+      date: new Date(user.createdAt).toLocaleDateString(),
+      loginId: user.username || user.id.substring(0, 8),
+      p: user.profitSharePercent || 0,
+      cCount: user.children?.length || 0,
+      master: user.parent?.username || 'N/A',
       actions: ['E', 'L', 'RP', 'CL', 'A'],
-      loginTime: '2025-06-06',
-      loginIp: '103.215.156.14',
-      joinTime: '2025-06-06'
-    },
-    { 
-      date: '09-10-2025',
-      loginId: '161422',
-      p: '1',
-      cCount: '0',
-      master: 'DEMO MST-01-Master (706730)',
-      actions: ['E', 'L', 'RP', 'CL', 'A'],
-      loginTime: '2025-06-06',
-      loginIp: '103.215.156.14',
-      joinTime: '2025-06-06'
-    },
-    { 
-      date: '09-10-2025',
-      loginId: '161422',
-      p: '1',
-      cCount: '0',
-      master: 'DEMO MST-01-Master (706730)',
-      actions: ['E', 'L', 'RP', 'CL', 'A'],
-      loginTime: '2025-06-06',
-      loginIp: '103.215.156.14',
-      joinTime: '2025-06-06'
-    },
-  ]
+      loginTime: user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never',
+      loginIp: user.sessions?.[0]?.ipAddress || 'N/A',
+      joinTime: new Date(user.createdAt).toLocaleDateString()
+    }))
+  }, [brokers])
 
   const toggleRow = (index: number) => {
     setExpandedRows(prev =>
@@ -59,13 +64,21 @@ export default function Broker() {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h1 className="text-lg sm:text-xl font-semibold text-gray-800">Dealer</h1>
+          <h1 className="text-lg sm:text-xl font-semibold text-gray-800">Broker</h1>
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <Input
-              type="text"
-              placeholder="Search"
-              className="w-full sm:w-64 h-10"
-            />
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search brokers..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="pl-9 w-full h-10"
+              />
+            </div>
+            <Button variant="outline" size="icon" className="h-10 w-10 flex-shrink-0" onClick={() => refresh()}>
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
             <Button variant="outline" size="icon" className="h-10 w-10 flex-shrink-0">
               <Download className="w-4 h-4" />
             </Button>
@@ -105,11 +118,11 @@ export default function Broker() {
               <Label className="text-sm text-gray-600 min-w-[80px]">Join Before</Label>
               <div className="relative flex-1">
                 <Input
-                  type="text"
-                  defaultValue="10/12/2025"
+                  type="date"
+                  value={joinBefore}
+                  onChange={(e) => setJoinBefore(e.target.value)}
                   className="w-full h-10 pr-8"
                 />
-                <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               </div>
             </div>
 
@@ -117,11 +130,11 @@ export default function Broker() {
               <Label className="text-sm text-gray-600 min-w-[80px]">Join After</Label>
               <div className="relative flex-1">
                 <Input
-                  type="text"
-                  defaultValue="10/12/2025"
+                  type="date"
+                  value={joinAfter}
+                  onChange={(e) => setJoinAfter(e.target.value)}
                   className="w-full h-10 pr-8"
                 />
-                <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               </div>
             </div>
           </div>
@@ -129,9 +142,11 @@ export default function Broker() {
       </div>
 
       {/* Show All entries */}
-      <div className="bg-white px-4 sm:px-6 py-3 flex items-center justify-between">
+      <div className="bg-white px-4 sm:px-6 py-3 flex items-center justify-between border-b border-gray-200">
         <div className="flex items-center gap-2">
-          <span className="text-xs sm:text-sm text-gray-600">Show All entries</span>
+          <span className="text-xs sm:text-sm text-gray-600">
+            {loading ? 'Loading...' : `Showing ${brokerData.length} of ${meta.total} brokers`}
+          </span>
           <Button variant="outline" size="sm" className="h-6 w-6 p-0">
             <span className="text-xs">+</span>
           </Button>
@@ -147,9 +162,9 @@ export default function Broker() {
         <Card className="overflow-hidden">
           {/* Mobile Card View */}
           <div className="sm:hidden space-y-3 p-4">
-            {brokerData.map((broker, index) => (
+            {brokerData.map((broker: any, index: number) => (
               <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
-                <div 
+                <div
                   className="flex justify-between items-start cursor-pointer"
                   onClick={() => toggleRow(index)}
                 >
@@ -203,7 +218,7 @@ export default function Broker() {
                     <div>
                       <span className="text-xs font-medium text-gray-500 mb-2 block">Actions:</span>
                       <div className="flex gap-1">
-                        {broker.actions.map((action, idx) => (
+                        {broker.actions.map((action: string, idx: number) => (
                           <Button
                             key={idx}
                             size="sm"
@@ -237,7 +252,7 @@ export default function Broker() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {brokerData.map((broker, index) => (
+                {brokerData.map((broker: any, index: number) => (
                   <TableRow key={index} className="hover:bg-gray-50">
                     <TableCell className="font-medium text-xs sm:text-sm">{broker.date}</TableCell>
                     <TableCell className="text-xs sm:text-sm">{broker.loginId}</TableCell>
@@ -246,7 +261,7 @@ export default function Broker() {
                     <TableCell className="text-xs sm:text-sm">{broker.master}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {broker.actions.map((action, idx) => (
+                        {broker.actions.map((action: string, idx: number) => (
                           <Button
                             key={idx}
                             size="sm"
@@ -265,7 +280,52 @@ export default function Broker() {
               </TableBody>
             </Table>
           </div>
+
+          {/* Empty/Loading State */}
+          {!loading && brokerData.length === 0 && (
+            <div className="p-8 text-center text-gray-500">
+              No brokers found
+            </div>
+          )}
+          {loading && brokerData.length === 0 && (
+            <div className="p-8 text-center flex flex-col items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-green-500 mb-2" />
+              <div className="text-sm text-gray-500">Fetching brokers...</div>
+            </div>
+          )}
         </Card>
+
+        {/* Pagination */}
+        {!loading && brokerData.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
+            <div className="text-sm text-gray-600">
+              Page {meta.page} of {meta.totalPages} ({meta.total} total brokers)
+            </div>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={meta.page <= 1}
+                onClick={() => updateFilters({ page: meta.page - 1 })}
+                className="text-xs"
+              >
+                Previous
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs bg-gray-100">
+                {meta.page}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={meta.page >= meta.totalPages}
+                onClick={() => updateFilters({ page: meta.page + 1 })}
+                className="text-xs"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

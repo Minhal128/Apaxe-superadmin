@@ -221,12 +221,12 @@ export default function Master() {
         <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <Label className="text-sm text-gray-600 whitespace-nowrap">Role</Label>
-            <Select value={filters.role} onValueChange={(value) => handleFilterChange('role', value)}>
+            <Select value={filters.role || 'all'} onValueChange={(value) => handleFilterChange('role', value === 'all' ? '' : value)}>
               <SelectTrigger className="w-full md:w-32 bg-gray-100">
                 <SelectValue placeholder="All Roles" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Roles</SelectItem>
+                <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="ADMIN">Admin</SelectItem>
                 <SelectItem value="SUPER_MASTER">Super Master</SelectItem>
                 <SelectItem value="MASTER">Master</SelectItem>
@@ -238,12 +238,12 @@ export default function Master() {
 
           <div className="flex items-center gap-2">
             <Label className="text-sm text-gray-600 whitespace-nowrap">Status</Label>
-            <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+            <Select value={filters.status || 'all'} onValueChange={(value) => handleFilterChange('status', value === 'all' ? '' : value)}>
               <SelectTrigger className="w-full md:w-32 bg-gray-100">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="ACTIVE">Active</SelectItem>
                 <SelectItem value="INACTIVE">Inactive</SelectItem>
                 <SelectItem value="SUSPENDED">Suspended</SelectItem>

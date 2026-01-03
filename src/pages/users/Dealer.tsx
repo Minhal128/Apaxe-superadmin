@@ -4,54 +4,59 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Label } from '@/components/ui/label'
-import { Calendar, Download, List, ChevronDown, ChevronUp, Search } from 'lucide-react'
-import { useState } from 'react'
+import { Download, List, ChevronDown, ChevronUp, RefreshCw, Loader2, Search } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { userApi } from '../../services/api'
+import { usePaginatedApi } from '../../hooks/useApi'
 
 export default function Dealer() {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [expandedRows, setExpandedRows] = useState<number[]>([])
 
   const toggleRow = (index: number) => {
-    setExpandedRows(prev => 
+    setExpandedRows(prev =>
       prev.includes(index) ? prev.filter(item => item !== index) : [...prev, index]
     )
   }
 
-  const dealerData = [
-    { 
-      date: '09-10-2025',
-      loginId: '161422',
-      p: '1',
-      cCount: '0',
-      master: 'DEMO MST-01-Master (706730)',
+  const [searchTerm, setSearchTerm] = useState('')
+  const [joinBefore, setJoinBefore] = useState('')
+  const [joinAfter, setJoinAfter] = useState('')
+
+  const {
+    data: dealers,
+    meta,
+    loading,
+    updateFilters,
+    refresh
+  } = usePaginatedApi(
+    (params) => userApi.getUsers({
+      ...params,
+      role: 'SUPER_MASTER',
+      search: searchTerm,
+    }),
+    { page: 1, limit: 50 }
+  )
+
+  const handleSearch = (value: string) => {
+    setSearchTerm(value)
+    updateFilters({ search: value })
+  }
+
+  const dealerData = useMemo(() => {
+    return dealers.map((user: any) => ({
+      id: user.id,
+      date: new Date(user.createdAt).toLocaleDateString(),
+      loginId: user.username || user.id.substring(0, 8),
+      p: user.profitSharePercent || 0,
+      cCount: user.children?.length || 0,
+      master: user.parent?.username || 'N/A',
       actions: ['E', 'L', 'RP', 'CL', 'A'],
-      loginTime: '2025-06-06',
-      loginIp: '103.215.156.14',
-      joinTime: '2025-06-06'
-    },
-    { 
-      date: '09-10-2025',
-      loginId: '161422',
-      p: '1',
-      cCount: '0',
-      master: 'DEMO MST-01-Master (706730)',
-      actions: ['E', 'L', 'RP', 'CL', 'A'],
-      loginTime: '2025-06-06',
-      loginIp: '103.215.156.14',
-      joinTime: '2025-06-06'
-    },
-    { 
-      date: '09-10-2025',
-      loginId: '161422',
-      p: '1',
-      cCount: '0',
-      master: 'DEMO MST-01-Master (706730)',
-      actions: ['E', 'L', 'RP', 'CL', 'A'],
-      loginTime: '2025-06-06',
-      loginIp: '103.215.156.14',
-      joinTime: '2025-06-06'
-    },
-  ]
+      loginTime: user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never',
+      loginIp: user.sessions?.[0]?.ipAddress || 'N/A',
+      joinTime: new Date(user.createdAt).toLocaleDateString()
+    }))
+  }, [dealers])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -63,10 +68,15 @@ export default function Dealer() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
               type="text"
-              placeholder="Search"
+              placeholder="Search dealers..."
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
               className="pl-9 w-full"
             />
           </div>
+          <Button variant="outline" size="icon" className="shrink-0" onClick={() => refresh()}>
+            <RefreshCw className={`w - 4 h - 4 ${loading ? 'animate-spin' : ''} `} />
+          </Button>
           <Button variant="outline" size="icon" className="shrink-0">
             <Download className="w-4 h-4" />
           </Button>
@@ -104,11 +114,11 @@ export default function Dealer() {
             <Label className="text-sm text-gray-600 whitespace-nowrap">Join Before</Label>
             <div className="relative">
               <Input
-                type="text"
-                defaultValue="10/12/2025"
-                className="w-28 sm:w-32 pr-8"
+                type="date"
+                value={joinBefore}
+                onChange={(e) => setJoinBefore(e.target.value)}
+                className="w-28 sm:w-40 pr-8"
               />
-              <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             </div>
           </div>
 
@@ -116,11 +126,11 @@ export default function Dealer() {
             <Label className="text-sm text-gray-600 whitespace-nowrap">Join After</Label>
             <div className="relative">
               <Input
-                type="text"
-                defaultValue="10/12/2025"
-                className="w-28 sm:w-32 pr-8"
+                type="date"
+                value={joinAfter}
+                onChange={(e) => setJoinAfter(e.target.value)}
+                className="w-28 sm:w-40 pr-8"
               />
-              <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             </div>
           </div>
 
@@ -132,15 +142,15 @@ export default function Dealer() {
 
       {/* Mobile Filters Toggle */}
       <div className="sm:hidden bg-white border-b border-gray-200 px-4 py-3">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="w-full justify-between"
           onClick={() => setIsFiltersOpen(!isFiltersOpen)}
         >
           <span>Filters</span>
-          <ChevronDown className={`w-4 h-4 transform transition-transform ${isFiltersOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w - 4 h - 4 transform transition - transform ${isFiltersOpen ? 'rotate-180' : ''} `} />
         </Button>
-        
+
         {/* Collapsible Filters for Mobile */}
         {isFiltersOpen && (
           <div className="mt-4 space-y-3">
@@ -173,11 +183,11 @@ export default function Dealer() {
                 <Label className="text-sm text-gray-600 whitespace-nowrap min-w-20">Join Before</Label>
                 <div className="relative flex-1">
                   <Input
-                    type="text"
-                    defaultValue="10/12/2025"
-                    className="pr-8 w-full"
+                    type="date"
+                    value={joinBefore}
+                    onChange={(e) => setJoinBefore(e.target.value)}
+                    className="w-full"
                   />
-                  <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 </div>
               </div>
 
@@ -185,11 +195,11 @@ export default function Dealer() {
                 <Label className="text-sm text-gray-600 whitespace-nowrap min-w-20">Join After</Label>
                 <div className="relative flex-1">
                   <Input
-                    type="text"
-                    defaultValue="10/12/2025"
-                    className="pr-8 w-full"
+                    type="date"
+                    value={joinAfter}
+                    onChange={(e) => setJoinAfter(e.target.value)}
+                    className="w-full"
                   />
-                  <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 </div>
               </div>
             </div>
@@ -202,9 +212,11 @@ export default function Dealer() {
       </div>
 
       {/* Show All entries */}
-      <div className="bg-white px-4 sm:px-6 py-3 flex items-center justify-between">
+      <div className="bg-white px-4 sm:px-6 py-3 flex items-center justify-between border-b border-gray-200">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Show All entries</span>
+          <span className="text-sm text-gray-600">
+            {loading ? 'Loading...' : `Showing ${dealerData.length} of ${meta.total} dealers`}
+          </span>
           <Button variant="outline" size="sm" className="h-6 w-6 p-0">
             <span className="text-xs">+</span>
           </Button>
@@ -235,7 +247,7 @@ export default function Dealer() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dealerData.map((dealer, index) => (
+                {dealerData.map((dealer: any, index: number) => (
                   <TableRow key={index} className="hover:bg-gray-50">
                     <TableCell className="font-medium">{dealer.date}</TableCell>
                     <TableCell>{dealer.loginId}</TableCell>
@@ -246,7 +258,7 @@ export default function Dealer() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {dealer.actions.map((action, idx) => (
+                        {dealer.actions.map((action: any, idx: number) => (
                           <Button
                             key={idx}
                             size="sm"
@@ -268,10 +280,10 @@ export default function Dealer() {
 
           {/* Mobile Cards */}
           <div className="lg:hidden">
-            {dealerData.map((dealer, index) => (
+            {dealerData.map((dealer: any, index: number) => (
               <Card key={index} className="m-4 overflow-hidden">
                 {/* Header - Always Visible */}
-                <div 
+                <div
                   className="p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50"
                   onClick={() => toggleRow(index)}
                 >
@@ -336,12 +348,12 @@ export default function Dealer() {
                         <p className="text-gray-900 font-mono text-xs">{dealer.loginIp}</p>
                       </div>
                     </div>
-                    
+
                     {/* Action Buttons */}
                     <div className="pt-3 border-t border-gray-200">
                       <span className="font-medium text-gray-500 text-sm mb-2 block">Actions:</span>
                       <div className="flex gap-1 flex-wrap">
-                        {dealer.actions.map((action, idx) => (
+                        {dealer.actions.map((action: any, idx: number) => (
                           <Button
                             key={idx}
                             size="sm"
@@ -368,11 +380,17 @@ export default function Dealer() {
             ))}
           </div>
 
-          {/* Empty State */}
-          {dealerData.length === 0 && (
+          {/* Empty/Loading State */}
+          {!loading && dealerData.length === 0 && (
             <div className="p-8 text-center">
               <div className="text-gray-400 mb-2">No dealer data available</div>
               <div className="text-sm text-gray-500">Try adjusting your search filters</div>
+            </div>
+          )}
+          {loading && dealerData.length === 0 && (
+            <div className="p-8 text-center flex flex-col items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-green-500 mb-2" />
+              <div className="text-sm text-gray-500">Fetching dealers...</div>
             </div>
           )}
         </Card>
@@ -380,19 +398,28 @@ export default function Dealer() {
         {/* Pagination - Mobile Friendly */}
         <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
           <div className="text-sm text-gray-600">
-            Showing {dealerData.length} dealers
+            Page {meta.page} of {meta.totalPages} ({meta.total} total dealers)
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
-            <Button variant="outline" size="sm" disabled className="text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={meta.page <= 1}
+              onClick={() => updateFilters({ page: meta.page - 1 })}
+              className="text-xs"
+            >
               Previous
             </Button>
             <Button variant="outline" size="sm" className="text-xs bg-gray-100">
-              1
+              {meta.page}
             </Button>
-            <Button variant="outline" size="sm" className="text-xs">
-              2
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={meta.page >= meta.totalPages}
+              onClick={() => updateFilters({ page: meta.page + 1 })}
+              className="text-xs"
+            >
               Next
             </Button>
           </div>

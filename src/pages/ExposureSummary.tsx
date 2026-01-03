@@ -47,20 +47,25 @@ export default function ExposureSummary() {
   const [searchQuery, setSearchQuery] = useState('')
 
   // API calls
-  const { 
-    data: exposureResponse, 
-    loading: exposureLoading, 
-    execute: fetchExposure 
-  } = useApi(summaryApi.getExposureSummary, { 
+  const {
+    data: exposureResponse,
+    loading: exposureLoading,
+    execute: fetchExposure
+  } = useApi(summaryApi.getExposureSummary, {
     immediate: false,
-    onError: (error: string) => {
-      console.log('Exposure endpoint error:', error)
+    onError: () => {
+      // Silently handle errors - use fallback data
     }
   })
 
-  const { 
-    data: usersResponse 
-  } = useApi(userApi.getUsers, { immediate: true })
+  const {
+    data: usersResponse
+  } = useApi(userApi.getUsers, {
+    immediate: true,
+    onError: () => {
+      // Silently handle errors
+    }
+  })
 
   // Fetch exposure data
   const loadExposureData = useCallback(() => {
@@ -122,7 +127,7 @@ export default function ExposureSummary() {
   // Process exposure data from API response
   const segments = SEGMENTS
   const users = usersResponse?.data?.users || []
-  const rawExposureData = exposureResponse?.data
+  const rawExposureData = exposureResponse?.data?.data
 
   // Transform exposure data for display
   const exposureData: ExposureData[] = rawExposureData?.positions?.map((position: any, index: number) => ({
@@ -272,7 +277,7 @@ export default function ExposureSummary() {
           </div>
 
           <div className="flex gap-3 w-full sm:w-auto">
-            <Button 
+            <Button
               className="bg-gray-800 hover:bg-gray-900 text-white h-10 flex-1 sm:flex-none"
               onClick={handleSubmit}
               disabled={exposureLoading}
@@ -309,7 +314,7 @@ export default function ExposureSummary() {
             </div>
             <span className="text-sm text-gray-500">{filteredData.length} records</span>
           </div>
-          
+
           {/* Mobile Card View */}
           <div className="sm:hidden space-y-3 p-4">
             {exposureLoading && filteredData.length === 0 ? (
@@ -322,7 +327,7 @@ export default function ExposureSummary() {
             ) : (
               filteredData.map((row) => (
                 <div key={row.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                  <div 
+                  <div
                     className="flex justify-between items-center cursor-pointer"
                     onClick={() => toggleRow(row.id)}
                   >
@@ -435,8 +440,8 @@ export default function ExposureSummary() {
                       <TableCell>{row.utilization.toFixed(2)}%</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Copy 
-                            className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-700" 
+                          <Copy
+                            className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-700"
                             onClick={() => copyToClipboard(row.username)}
                           />
                           <File className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-700" />

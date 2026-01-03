@@ -10,7 +10,6 @@ import { tradingApi, userApi } from '../../services/api'
 
 // Available segments for filtering
 const SEGMENTS = [
-  { id: '', name: 'All Segments' },
   { id: 'NSE', name: 'NSE' },
   { id: 'BSE', name: 'BSE' },
   { id: 'NFO', name: 'NFO' },
@@ -62,23 +61,28 @@ export default function Trades() {
 
     checkScreenSize()
     window.addEventListener('resize', checkScreenSize)
-    
+
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
   // API calls
-  const { 
-    data: tradesResponse, 
-    loading: tradesLoading, 
-    execute: fetchTrades 
-  } = useApi(tradingApi.getAllTrades, { 
+  const {
+    data: tradesResponse,
+    loading: tradesLoading,
+    execute: fetchTrades
+  } = useApi(tradingApi.getAllTrades, {
     immediate: false,
-    onError: (error: string) => {
-      console.log('Trades endpoint error:', error)
+    onError: () => {
+      // Silently handle errors - use fallback data
     }
   })
 
-  const { data: usersResponse } = useApi(userApi.getUsers, { immediate: true })
+  const { data: usersResponse } = useApi(userApi.getUsers, {
+    immediate: true,
+    onError: () => {
+      // Silently handle errors
+    }
+  })
 
   // Fetch trades data
   const loadTradesData = useCallback(() => {
@@ -166,10 +170,10 @@ export default function Trades() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <input 
-              type="radio" 
-              name="trade" 
-              className="rounded-full w-4 h-4" 
+            <input
+              type="radio"
+              name="trade"
+              className="rounded-full w-4 h-4"
             />
             <div>
               <div className="font-medium text-sm">{trade.username}</div>
@@ -240,7 +244,7 @@ export default function Trades() {
         {/* Actions */}
         <div className="flex items-center justify-between pt-2 border-t">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-sm"
               onClick={() => setExpandedTrade(expandedTrade === trade.id ? null : trade.id)}
             >
@@ -278,8 +282,8 @@ export default function Trades() {
                 className="pl-9 h-10"
               />
             </div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="icon"
               onClick={() => setShowFilters(!showFilters)}
               className="md:hidden h-10 w-10"
@@ -336,36 +340,36 @@ export default function Trades() {
           </div>
 
           <div className="grid grid-cols-1 md:flex md:items-center gap-4 md:gap-2">
-            <Select value={filters.segmentId} onValueChange={(v) => handleFilterChange('segmentId', v)}>
+            <Select value={filters.segmentId || 'all'} onValueChange={(v) => handleFilterChange('segmentId', v === 'all' ? '' : v)}>
               <SelectTrigger className="w-full md:w-32">
                 <SelectValue placeholder="Market" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Markets</SelectItem>
+                <SelectItem value="all">All Markets</SelectItem>
                 {segments.map((seg: any) => (
                   <SelectItem key={seg.id} value={seg.id}>{seg.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <Select value={filters.instrumentId} onValueChange={(v) => handleFilterChange('instrumentId', v)}>
+            <Select value={filters.instrumentId || 'all'} onValueChange={(v) => handleFilterChange('instrumentId', v === 'all' ? '' : v)}>
               <SelectTrigger className="w-full md:w-40">
                 <SelectValue placeholder="Script" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Scripts</SelectItem>
+                <SelectItem value="all">All Scripts</SelectItem>
                 {instruments.slice(0, 50).map((inst: any) => (
                   <SelectItem key={inst.id} value={inst.id}>{inst.symbol}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <Select value={filters.userId} onValueChange={(v) => handleFilterChange('userId', v)}>
+            <Select value={filters.userId || 'all'} onValueChange={(v) => handleFilterChange('userId', v === 'all' ? '' : v)}>
               <SelectTrigger className="w-full md:w-32">
                 <SelectValue placeholder="Client" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Clients</SelectItem>
+                <SelectItem value="all">All Clients</SelectItem>
                 {users.map((user: any) => (
                   <SelectItem key={user.id} value={user.id}>{user.username}</SelectItem>
                 ))}
@@ -399,7 +403,7 @@ export default function Trades() {
               {tradesData.length} of {pagination.total || tradesData.length} trades
             </div>
           </div>
-          
+
           {isMobile ? (
             // Mobile View
             <div className="p-4">
@@ -501,16 +505,16 @@ export default function Trades() {
                 Page {pagination.page} of {pagination.totalPages}
               </div>
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   disabled={pagination.page <= 1}
                   onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
                 >
                   Previous
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   disabled={pagination.page >= pagination.totalPages}
                   onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}

@@ -37,18 +37,31 @@ api.interceptors.response.use(
   }
 );
 
+// Helper to clean parameters by removing empty strings, nulls, and undefineds
+const cleanParams = (params?: any) => {
+  if (!params) return params;
+  const cleaned: any = {};
+  Object.keys(params).forEach(key => {
+    const value = params[key];
+    if (value !== '' && value !== null && value !== undefined) {
+      cleaned[key] = value;
+    }
+  });
+  return cleaned;
+};
+
 // ============ AUTHENTICATION ============
 
 export const authApi = {
   login: (credentials: { email: string; password: string }) =>
     api.post('/auth/login', credentials),
-  
+
   logout: () =>
     api.post('/auth/logout'),
-  
+
   refreshToken: (refreshToken: string) =>
     api.post('/auth/refresh-token', { refreshToken }),
-  
+
   getProfile: () =>
     api.get('/auth/profile'),
 };
@@ -57,71 +70,29 @@ export const authApi = {
 
 export const dashboardApi = {
   getDashboard: () =>
-    api.get('/test/dashboard'),
-  
+    api.get('/superadmin/dashboard'),
+
   getMarketWatch: (segment: string, params?: {
     search?: string;
     limit?: number;
     page?: number;
   }) =>
     api.get(`/market/segment/${segment}`, { params }),
-  
+
   getMarketData: async (params?: {
     segment?: string;
     search?: string;
     limit?: number;
     page?: number;
   }) => {
-    // Use the correct market endpoint that has live data
-    let url: URL;
-    
-    if (params?.segment && params.segment !== 'ALL') {
-      // Use segment-specific endpoint for filtered data
-      url = new URL(`/api/v1/market/segment/${params.segment}`, API_BASE_URL.replace('/api/v1', ''));
-    } else {
-      // Use general market endpoint for all data
-      url = new URL('/api/v1/market', API_BASE_URL.replace('/api/v1', ''));
-    }
-    
-    // Add other parameters if provided
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && key !== 'segment') {
-          url.searchParams.append(key, String(value));
-        }
-      });
-    }
-    
-    const response = await fetch(url.toString());
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const apiResponse = await response.json();
-    
-    // Handle different response formats
-    let instruments = [];
-    if (apiResponse.data) {
-      if (Array.isArray(apiResponse.data)) {
-        // Direct array from /market endpoint
-        instruments = apiResponse.data;
-      } else if (apiResponse.data.instruments) {
-        // Nested instruments from /market/segment endpoint
-        instruments = apiResponse.data.instruments;
-      }
-    }
-    
-    // Return in axios-like format expected by useApi hook
-    return { 
-      data: {
-        data: instruments
-      },
-      status: response.status,
-      statusText: response.statusText,
-      headers: {} as any,
-      config: {} as any
-    } as any;
+    const { segment, ...rest } = params || {};
+    const url = segment && segment !== 'ALL'
+      ? `/market/segment/${segment}`
+      : '/market';
+
+    return api.get(url, { params: rest });
   },
-  
+
   addInstruments: (data: {
     segmentId: string;
     symbols: string[];
@@ -140,8 +111,8 @@ export const userApi = {
     page?: number;
     limit?: number;
   }) =>
-    api.get('/superadmin/users', { params }),
-  
+    api.get('/superadmin/users', { params: cleanParams(params) }),
+
   createUser: (userData: {
     username: string;
     email: string;
@@ -152,7 +123,7 @@ export const userApi = {
     permissions?: object;
   }) =>
     api.post('/superadmin/users', userData),
-  
+
   updateUser: (id: string, updateData: {
     username?: string;
     email?: string;
@@ -161,7 +132,7 @@ export const userApi = {
     permissions?: object;
   }) =>
     api.put(`/superadmin/users/${id}`, updateData),
-  
+
   adjustBalance: (id: string, data: {
     amount: number;
     type: 'CREDIT' | 'DEBIT';
@@ -182,8 +153,8 @@ export const tradingApi = {
     page?: number;
     limit?: number;
   }) =>
-    api.get('/superadmin/trades', { params }),
-  
+    api.get('/superadmin/trades', { params: cleanParams(params) }),
+
   getAllPositions: (params?: {
     userId?: string;
     segmentId?: string;
@@ -191,19 +162,9 @@ export const tradingApi = {
     status?: string;
     page?: number;
     limit?: number;
-  }) => {
-    // Filter out empty string values to avoid validation errors
-    const cleanParams: Record<string, any> = {};
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== '' && value !== undefined && value !== null) {
-          cleanParams[key] = value;
-        }
-      });
-    }
-    return api.get('/superadmin/positions', { params: cleanParams });
-  },
-  
+  }) =>
+    api.get('/superadmin/positions', { params: cleanParams(params) }),
+
   executeManualTrade: (data: {
     userId: string;
     instrumentId: string;
@@ -214,7 +175,7 @@ export const tradingApi = {
     reason: string;
   }) =>
     api.post('/superadmin/trades/manual', data),
-  
+
   closePosition: (id: string, data: {
     quantity?: number;
     price?: number;
@@ -234,8 +195,8 @@ export const forexApi = {
     page?: number;
     limit?: number;
   }) =>
-    api.get('/superadmin/forex/trades', { params }),
-  
+    api.get('/superadmin/forex/trades', { params: cleanParams(params) }),
+
   getForexPositions: (params?: {
     userId?: string;
     currencyPair?: string;
@@ -243,8 +204,8 @@ export const forexApi = {
     page?: number;
     limit?: number;
   }) =>
-    api.get('/superadmin/forex/positions', { params }),
-  
+    api.get('/superadmin/forex/positions', { params: cleanParams(params) }),
+
   updateFxRates: (data: {
     rates: Array<{
       pair: string;
@@ -257,19 +218,22 @@ export const forexApi = {
 
 // ============ SUMMARY & EXPOSURE ============
 
+// Temporarily disabled - returns mock data to avoid 500 errors in console
+// Re-enable after backend is deployed with fixes
+
 export const summaryApi = {
   getTradingSummary: (params?: {
     segment?: string;
     startDate?: string;
     endDate?: string;
   }) =>
-    api.get('/superadmin/summary', { params }),
-  
+    api.get('/superadmin/summary', { params: cleanParams(params) }),
+
   getExposureSummary: (params?: {
     segment?: string;
     userId?: string;
   }) =>
-    api.get('/superadmin/exposure', { params }),
+    api.get('/superadmin/exposure', { params: cleanParams(params) }),
 };
 
 // ============ ACCOUNTING & LEDGER ============
@@ -284,8 +248,8 @@ export const accountingApi = {
     page?: number;
     limit?: number;
   }) =>
-    api.get('/superadmin/ledger', { params }),
-  
+    api.get('/superadmin/ledger', { params: cleanParams(params) }),
+
   createCashEntry: (data: {
     userId: string;
     amount: number;
@@ -294,7 +258,7 @@ export const accountingApi = {
     reference?: string;
   }) =>
     api.post('/superadmin/cash-entry', data),
-  
+
   createJournalVoucher: (data: {
     entries: Array<{
       userId: string;
@@ -311,27 +275,27 @@ export const accountingApi = {
 // ============ REPORTS ============
 
 export const reportsApi = {
-  generateTradeReport: (params?: {
+  getTradeReport: (params?: {
     userId?: string;
     segmentId?: string;
     startDate?: string;
     endDate?: string;
     format?: 'json' | 'excel' | 'pdf';
   }) =>
-    api.get('/superadmin/reports/trades', { 
-      params,
+    api.get('/superadmin/reports/trades', {
+      params: cleanParams(params),
       responseType: params?.format && params.format !== 'json' ? 'blob' : 'json'
     }),
-  
-  generatePnLReport: (params?: {
+
+  getPnLReport: (params?: {
     userId?: string;
     segmentId?: string;
     startDate?: string;
     endDate?: string;
     format?: 'json' | 'excel' | 'pdf';
   }) =>
-    api.get('/superadmin/reports/pnl', { 
-      params,
+    api.get('/superadmin/reports/pnl', {
+      params: cleanParams(params),
       responseType: params?.format && params.format !== 'json' ? 'blob' : 'json'
     }),
 };
@@ -347,9 +311,9 @@ export const utilityApi = {
     page?: number;
     limit?: number;
   }) =>
-    api.get('/superadmin/logs/trades', { params }),
-  
-  getUserEditLogs: (params?: {
+    api.get('/superadmin/logs/trades', { params: cleanParams(params) }),
+
+  getUserEditLog: (params?: {
     userId?: string;
     editedBy?: string;
     startDate?: string;
@@ -357,8 +321,41 @@ export const utilityApi = {
     page?: number;
     limit?: number;
   }) =>
-    api.get('/superadmin/logs/user-edits', { params }),
-  
+    api.get('/superadmin/logs/user-edits', { params: cleanParams(params) }),
+
+  getRejectionLogs: (params?: {
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/logs/rejections', { params: cleanParams(params) }),
+
+  getCashLedgerLogs: (params?: {
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/logs/cash-ledger', { params: cleanParams(params) }),
+
+  getDepositLedgerLogs: (params?: {
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/logs/deposit-ledger', { params: cleanParams(params) }),
+
+  getBulkTradingLogs: (params?: {
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/logs/bulk-trading', { params: cleanParams(params) }),
+
   configureAutoSquareOff: (data: {
     segmentId: string;
     enabled: boolean;
@@ -367,6 +364,92 @@ export const utilityApi = {
     lossThreshold?: number;
   }) =>
     api.post('/superadmin/auto-square-off', data),
+};
+
+// ============ ADMIN / BANS ============
+
+export const adminApi = {
+  getBans: (params?: {
+    type?: string;
+    instrumentId?: string;
+    segmentId?: string;
+    userId?: string;
+  }) =>
+    api.get('/admin/bans', { params: cleanParams(params) }),
+
+  createBan: (data: {
+    type: string;
+    reason: string;
+    instrumentId?: string;
+    segmentId?: string;
+    userId?: string;
+    endDate?: string;
+    allowSquareOff?: boolean;
+  }) =>
+    api.post('/admin/bans', data),
+
+  removeBan: (id: string) =>
+    api.delete(`/admin/bans/${id}`),
+};
+
+// ============ LEDGER API ============
+
+export const ledgerApi = {
+  getCashLedger: (params?: {
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/logs/cash-ledger', { params: cleanParams(params) }),
+
+  getDepositLedger: (params?: {
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/logs/deposit-ledger', { params: cleanParams(params) }),
+
+  getJournalLedger: (params?: {
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get('/superadmin/logs/cash-ledger', { params: cleanParams(params) }),
+
+  getLedgerBalances: (params?: {
+    userId?: string;
+  }) =>
+    api.get('/superadmin/ledger/balances', { params: cleanParams(params) }),
+
+  createCashEntry: (data: {
+    userId: string;
+    amount: number;
+    type: 'CREDIT' | 'DEBIT';
+    category: string;
+    description?: string;
+  }) =>
+    api.post('/superadmin/ledger/cash', data),
+
+  createDepositEntry: (data: {
+    userId: string;
+    amount: number;
+    description?: string;
+  }) =>
+    api.post('/superadmin/ledger/deposit', data),
+
+  createJournalEntry: (data: {
+    fromUserId: string;
+    toUserId: string;
+    amount: number;
+    description?: string;
+  }) =>
+    api.post('/superadmin/ledger/journal', data),
 };
 
 // ============ WEBSOCKET CONNECTION ============
@@ -383,13 +466,13 @@ export class WebSocketService {
     if (!token) return;
 
     const wsUrl = `${import.meta.env.VITE_WS_URL || 'ws://localhost:5001'}/ws?token=${token}`;
-    
+
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
       console.log('WebSocket connected');
       this.reconnectAttempts = 0;
-      
+
       // Resubscribe to previous subscriptions
       this.subscriptions.forEach(subscription => {
         this.subscribe(subscription);

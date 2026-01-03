@@ -2,16 +2,22 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useState } from 'react'
+import { ledgerApi, formatDate, formatCurrency } from '@/services/api'
+import { usePaginatedApi } from '@/hooks/useApi'
+import { Loader2 } from 'lucide-react'
 
 export default function JVLedger() {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
-  
-  const jvLedgerData = [
-    { fromAccount: '161422', toAccount: '161423', amount: '1000.00', remark: 'Transfer', date: '2024-01-11', time: '06:00:03', ip: '103.215.156.14', editTime: '2024-01-11 06:00:03', addTime: '2024-01-11 06:00:03', action: 'E L RP CL A' },
-    { fromAccount: '161422', toAccount: '161423', amount: '1000.00', remark: 'Transfer', date: '2024-01-11', time: '06:00:03', ip: '103.215.156.14', editTime: '2024-01-11 06:00:03', addTime: '2024-01-11 06:00:03', action: 'E L RP CL A' },
-    { fromAccount: '161422', toAccount: '161423', amount: '1000.00', remark: 'Transfer', date: '2024-01-11', time: '06:00:03', ip: '103.215.156.14', editTime: '2024-01-11 06:00:03', addTime: '2024-01-11 06:00:03', action: 'E L RP CL A' },
-    { fromAccount: '161422', toAccount: '161423', amount: '1000.00', remark: 'Transfer', date: '2024-01-11', time: '06:00:03', ip: '103.215.156.14', editTime: '2024-01-11 06:00:03', addTime: '2024-01-11 06:00:03', action: 'E L RP CL A' },
-  ]
+  const [filters, setFilters] = useState({ userId: '', startDate: '', endDate: '' })
+
+  const { data: jvLedgerData, loading, updateFilters } = usePaginatedApi(
+    ledgerApi.getJournalLedger,
+    { limit: 50 }
+  )
+
+  const handleSubmit = () => {
+    updateFilters(filters)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -33,68 +39,80 @@ export default function JVLedger() {
           <div className="w-full sm:w-64">
             <Input
               type="text"
-              placeholder="Search"
+              placeholder="User ID"
               className="w-full"
+              value={filters.userId}
+              onChange={(e) => setFilters({ ...filters, userId: e.target.value })}
             />
           </div>
           <div className="w-full sm:w-48">
             <Input
-              type="text"
-              placeholder="Enter Before"
+              type="date"
+              placeholder="Start Date"
               className="w-full"
+              value={filters.startDate}
+              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
             />
           </div>
           <div className="w-full sm:w-48">
             <Input
-              type="text"
-              placeholder="Entry After"
+              type="date"
+              placeholder="End Date"
               className="w-full"
+              value={filters.endDate}
+              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
             />
           </div>
-          <Button className="bg-green-500 hover:bg-green-600 text-white w-full sm:w-auto">
-            Submit
+          <Button className="bg-green-500 hover:bg-green-600 text-white w-full sm:w-auto" onClick={handleSubmit} disabled={loading}>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit'}
           </Button>
         </div>
       </div>
 
       {/* Mobile Filters Toggle */}
       <div className="sm:hidden bg-white border-b border-gray-200 px-4 py-3">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="w-full justify-between"
           onClick={() => setIsFiltersOpen(!isFiltersOpen)}
         >
           <span>Filters</span>
-          <svg 
-            className={`w-4 h-4 transform transition-transform ${isFiltersOpen ? 'rotate-180' : ''}`} 
-            fill="none" 
-            stroke="currentColor" 
+          <svg
+            className={`w-4 h-4 transform transition-transform ${isFiltersOpen ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
             viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </Button>
-        
+
         {/* Collapsible Filters for Mobile */}
         {isFiltersOpen && (
           <div className="mt-4 space-y-3">
             <Input
               type="text"
-              placeholder="Search"
+              placeholder="User ID"
               className="w-full"
+              value={filters.userId}
+              onChange={(e) => setFilters({ ...filters, userId: e.target.value })}
             />
             <Input
-              type="text"
-              placeholder="Enter Before"
+              type="date"
+              placeholder="Start Date"
               className="w-full"
+              value={filters.startDate}
+              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
             />
             <Input
-              type="text"
-              placeholder="Entry After"
+              type="date"
+              placeholder="End Date"
               className="w-full"
+              value={filters.endDate}
+              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
             />
-            <Button className="bg-green-500 hover:bg-green-600 text-white w-full">
-              Submit
+            <Button className="bg-green-500 hover:bg-green-600 text-white w-full" onClick={handleSubmit} disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit'}
             </Button>
           </div>
         )}
@@ -139,20 +157,20 @@ export default function JVLedger() {
                 </tr>
               </thead>
               <tbody>
-                {jvLedgerData.map((item, index) => (
+                {(jvLedgerData || []).map((item: any, index: number) => (
                   <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900">{item.fromAccount}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.toAccount}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.amount}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.remark}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.date}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.time}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.ip}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.editTime}</td>
-                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.addTime}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900">{item.user?.firstName || item.userId || '-'}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.sourceUserId || '-'}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{formatCurrency(item.amount)}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{item.description || item.reference || '-'}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{formatDate(item.createdAt)}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{formatDate(item.createdAt)}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">-</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{formatDate(item.updatedAt)}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">{formatDate(item.createdAt)}</td>
                     <td className="px-4 sm:px-6 py-4 text-sm">
                       <div className="flex gap-1 sm:gap-2 flex-wrap">
-                        {['E', 'L', 'RP', 'CL', 'A'].map((btn) => (
+                        {['View'].map((btn) => (
                           <Button key={btn} variant="outline" size="sm" className="h-6 sm:h-7 px-2 text-xs">
                             {btn}
                           </Button>
@@ -167,45 +185,37 @@ export default function JVLedger() {
 
           {/* Mobile Cards */}
           <div className="lg:hidden space-y-4 p-4">
-            {jvLedgerData.map((item, index) => (
+            {(jvLedgerData || []).map((item: any, index: number) => (
               <Card key={index} className="p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="col-span-2">
                     <span className="font-medium text-gray-500">Transfer:</span>
-                    <p className="text-gray-900 font-medium">{item.fromAccount} → {item.toAccount}</p>
+                    <p className="text-gray-900 font-medium">{item.user?.firstName || item.userId} → {item.sourceUserId || 'N/A'}</p>
                   </div>
                   <div>
                     <span className="font-medium text-gray-500">Amount:</span>
-                    <p className="text-gray-900 font-semibold">{item.amount}</p>
+                    <p className="text-gray-900 font-semibold">{formatCurrency(item.amount)}</p>
                   </div>
                   <div>
                     <span className="font-medium text-gray-500">Date:</span>
-                    <p className="text-gray-900">{item.date}</p>
+                    <p className="text-gray-900">{formatDate(item.createdAt)}</p>
                   </div>
                   <div className="col-span-2">
                     <span className="font-medium text-gray-500">Remark:</span>
-                    <p className="text-gray-900">{item.remark}</p>
+                    <p className="text-gray-900">{item.description || item.reference || '-'}</p>
                   </div>
                   <div>
                     <span className="font-medium text-gray-500">Time:</span>
-                    <p className="text-gray-900 text-xs">{item.time}</p>
+                    <p className="text-gray-900 text-xs">{formatDate(item.createdAt)}</p>
                   </div>
                   <div>
-                    <span className="font-medium text-gray-500">IP:</span>
-                    <p className="text-gray-900 text-xs">{item.ip}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-500">Edit Time:</span>
-                    <p className="text-gray-900 text-xs">{item.editTime}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-500">Add Time:</span>
-                    <p className="text-gray-900 text-xs">{item.addTime}</p>
+                    <span className="font-medium text-gray-500">Type:</span>
+                    <p className="text-gray-900 text-xs">{item.type || 'TRANSFER'}</p>
                   </div>
                 </div>
                 <div className="pt-2 border-t border-gray-200">
                   <div className="flex gap-1 flex-wrap">
-                    {['E', 'L', 'RP', 'CL', 'A'].map((btn) => (
+                    {['View'].map((btn) => (
                       <Button key={btn} variant="outline" size="sm" className="h-6 px-2 text-xs">
                         {btn}
                       </Button>

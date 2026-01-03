@@ -4,147 +4,217 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Label } from '@/components/ui/label'
-import { ChevronDown, ChevronUp } from 'lucide-react'
-import { useState } from 'react'
+import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2 } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { userApi, tradingApi } from '../../services/api'
+import { useApi } from '../../hooks/useApi'
+
+interface MarginData {
+  id: string
+  name: string
+  nsefutAmount: string
+  nsefutLot: string
+  mcxfutAmount: string
+  mcxfutLot: string
+  nseoptAmount: string
+  nseoptLot: string
+  totalAmount: string
+  totalLot: string
+  role: string
+}
 
 export default function ForexMarginManagement() {
-  const [expandedRows, setExpandedRows] = useState<number[]>([])
+  const [expandedRows, setExpandedRows] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filters, setFilters] = useState({
+    client: 'all',
+    broker: 'all',
+    master: 'all'
+  })
 
-  const marginData = [
-    { 
-      name: 'DEMO MST-01 (706730) (M', 
-      nsefutAmount: '2,000,000',
-      nsefutLot: '0',
-      mcxfutAmount: '0',
-      mcxfutLot: '0',
-      nseoptAmount: '0',
-      nseoptLot: '0',
-      totalAmount: '2,000,000',
-      totalLot: '0'
-    },
-    { 
-      name: 'DEMO MST-01 (706730) (M', 
-      nsefutAmount: '2,000,000',
-      nsefutLot: '0',
-      mcxfutAmount: '0',
-      mcxfutLot: '0',
-      nseoptAmount: '0',
-      nseoptLot: '0',
-      totalAmount: '2,000,000',
-      totalLot: '0'
-    },
-    { 
-      name: 'DEMO MST-01 (706730) (M', 
-      nsefutAmount: '2,000,000',
-      nsefutLot: '0',
-      mcxfutAmount: '0',
-      mcxfutLot: '0',
-      nseoptAmount: '0',
-      nseoptLot: '0',
-      totalAmount: '2,000,000',
-      totalLot: '0'
-    },
-    { 
-      name: 'DEMO MST-01 (706730) (M', 
-      nsefutAmount: '2,000,000',
-      nsefutLot: '0',
-      mcxfutAmount: '0',
-      mcxfutLot: '0',
-      nseoptAmount: '0',
-      nseoptLot: '0',
-      totalAmount: '2,000,000',
-      totalLot: '0'
-    },
-    { 
-      name: 'DEMO MST-01 (706730) (M', 
-      nsefutAmount: '2,000,000',
-      nsefutLot: '0',
-      mcxfutAmount: '0',
-      mcxfutLot: '0',
-      nseoptAmount: '0',
-      nseoptLot: '0',
-      totalAmount: '2,000,000',
-      totalLot: '0'
-    },
-    { 
-      name: 'DEMO MST-01 (706730) (M', 
-      nsefutAmount: '2,000,000',
-      nsefutLot: '0',
-      mcxfutAmount: '0',
-      mcxfutLot: '0',
-      nseoptAmount: '0',
-      nseoptLot: '0',
-      totalAmount: '2,000,000',
-      totalLot: '0'
-    },
-  ]
+  // API calls
+  const {
+    data: usersResponse,
+    loading: usersLoading,
+    execute: fetchUsers
+  } = useApi(userApi.getUsers, {
+    immediate: true
+  })
 
-  const toggleRow = (index: number) => {
+  const {
+    data: positionsResponse,
+    loading: positionsLoading,
+    execute: fetchPositions
+  } = useApi(tradingApi.getAllPositions, {
+    immediate: true
+  })
+
+  const refreshData = useCallback(() => {
+    fetchUsers({})
+    fetchPositions({})
+  }, [fetchUsers, fetchPositions])
+
+  // Auto-refresh
+  useEffect(() => {
+    const interval = setInterval(refreshData, 10000)
+    return () => clearInterval(interval)
+  }, [refreshData])
+
+  const toggleRow = (id: string) => {
     setExpandedRows(prev =>
-      prev.includes(index)
-        ? prev.filter(item => item !== index)
-        : [...prev, index]
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     )
   }
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
+  const handleSearch = () => {
+    refreshData()
+  }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value)
+  }
+
+  // Data processing
+  const users = usersResponse?.data?.users || []
+  const positions = positionsResponse?.data?.positions || positionsResponse?.data || []
+
+  const marginData: MarginData[] = users.map((user: any) => {
+    const userPositions = Array.isArray(positions)
+      ? positions.filter((p: any) => p.userId === user.id)
+      : []
+
+    const getSegmentStats = (segmentName: string) => {
+      const segPos = userPositions.filter((p: any) =>
+        (p.instrument?.segment?.name === segmentName || p.segment === segmentName)
+      )
+      const amount = segPos.reduce((sum: number, p: any) => sum + (p.marginUsed || 0), 0)
+      const lot = segPos.reduce((sum: number, p: any) => sum + (p.quantity || 0), 0)
+      return { amount, lot }
+    }
+
+    const nsefut = getSegmentStats('NSE') // Mapping NSE to NSEFUT for now
+    const mcxfut = getSegmentStats('MCX')
+    const nseopt = getSegmentStats('NFO') // Mapping NFO to NSEOPT
+
+    const totalAmount = nsefut.amount + mcxfut.amount + nseopt.amount + (user.balance || 0)
+    const totalLot = nsefut.lot + mcxfut.lot + nseopt.lot
+
+    return {
+      id: user.id,
+      name: user.username,
+      role: user.role,
+      nsefutAmount: formatCurrency(nsefut.amount),
+      nsefutLot: nsefut.lot.toString(),
+      mcxfutAmount: formatCurrency(mcxfut.amount),
+      mcxfutLot: mcxfut.lot.toString(),
+      nseoptAmount: formatCurrency(nseopt.amount),
+      nseoptLot: nseopt.lot.toString(),
+      totalAmount: formatCurrency(totalAmount),
+      totalLot: totalLot.toString()
+    }
+  })
+
+  const filteredData = marginData.filter(item => {
+    if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+    if (filters.client !== 'all' && item.role !== 'CLIENT') return false
+    if (filters.broker !== 'all' && item.role !== 'BROKER') return false
+    if (filters.master !== 'all' && item.role !== 'MASTER') return false
+    return true
+  })
+
+  const isLoading = usersLoading || positionsLoading
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h1 className="text-lg sm:text-xl font-semibold text-gray-800">Margin Management</h1>
-          <Input
-            type="text"
-            placeholder="Search"
-            className="w-full sm:w-64 h-10"
-          />
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg sm:text-xl font-semibold text-gray-800">Margin Management</h1>
+            {isLoading && <Loader2 className="w-4 h-4 animate-spin text-gray-500" />}
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-10"
+              />
+            </div>
+            <Button variant="outline" size="icon" className="h-10 w-10" onClick={refreshData}>
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full sm:w-auto">
             <div className="flex items-center gap-2">
               <Label className="text-sm text-gray-600 min-w-[50px]">Client</Label>
-              <Select defaultValue="">
+              <Select value={filters.client} onValueChange={(v) => handleFilterChange('client', v)}>
                 <SelectTrigger className="w-full sm:w-32 h-10 bg-gray-100">
-                  <SelectValue placeholder="Expiry" />
+                  <SelectValue placeholder="All Clients" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="expiry">Expiry</SelectItem>
+                  <SelectItem value="all">All Clients</SelectItem>
+                  {users.filter((u: any) => u.role === 'CLIENT').map((u: any) => (
+                    <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex items-center gap-2">
               <Label className="text-sm text-gray-600 min-w-[50px]">Broker</Label>
-              <Select defaultValue="">
+              <Select value={filters.broker} onValueChange={(v) => handleFilterChange('broker', v)}>
                 <SelectTrigger className="w-full sm:w-32 h-10 bg-gray-100">
-                  <SelectValue placeholder="Expiry" />
+                  <SelectValue placeholder="All Brokers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="expiry">Expiry</SelectItem>
+                  <SelectItem value="all">All Brokers</SelectItem>
+                  {users.filter((u: any) => u.role === 'BROKER').map((u: any) => (
+                    <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex items-center gap-2">
               <Label className="text-sm text-gray-600 min-w-[50px]">Master</Label>
-              <Select defaultValue="">
+              <Select value={filters.master} onValueChange={(v) => handleFilterChange('master', v)}>
                 <SelectTrigger className="w-full sm:w-32 h-10 bg-gray-100">
-                  <SelectValue placeholder="Select" />
+                  <SelectValue placeholder="All Masters" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="master">Master</SelectItem>
+                  <SelectItem value="all">All Masters</SelectItem>
+                  {users.filter((u: any) => u.role === 'MASTER').map((u: any) => (
+                    <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <Button className="bg-green-500 hover:bg-green-600 text-white h-10 w-full sm:w-auto mt-2 sm:mt-0">
-            Search
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+            <Button className="bg-green-500 hover:bg-green-600 text-white h-10 flex-1 sm:flex-none" onClick={handleSearch}>
+              Search
+            </Button>
+            <Button variant="outline" className="h-10 flex-1 sm:flex-none" onClick={() => setFilters({ client: 'all', broker: 'all', master: 'all' })}>
+              Reset
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -153,11 +223,11 @@ export default function ForexMarginManagement() {
         <Card className="overflow-hidden">
           {/* Mobile Card View */}
           <div className="sm:hidden space-y-3 p-4">
-            {marginData.map((item, index) => (
-              <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
-                <div 
+            {filteredData.map((item) => (
+              <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                <div
                   className="flex justify-between items-center cursor-pointer"
-                  onClick={() => toggleRow(index)}
+                  onClick={() => toggleRow(item.id)}
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -170,7 +240,7 @@ export default function ForexMarginManagement() {
                     </div>
                   </div>
                   <div>
-                    {expandedRows.includes(index) ? (
+                    {expandedRows.includes(item.id) ? (
                       <ChevronUp className="w-4 h-4 text-gray-400" />
                     ) : (
                       <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -178,7 +248,7 @@ export default function ForexMarginManagement() {
                   </div>
                 </div>
 
-                {expandedRows.includes(index) && (
+                {expandedRows.includes(item.id) && (
                   <div className="mt-4 space-y-4 border-t pt-4">
                     {/* NSEFUT Section */}
                     <div className="bg-blue-50 p-3 rounded-lg">
@@ -268,19 +338,27 @@ export default function ForexMarginManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {marginData.map((item, index) => (
-                  <TableRow key={index} className="hover:bg-gray-50">
-                    <TableCell className="font-medium border-r border-gray-200">{item.name}</TableCell>
-                    <TableCell className="border-r border-gray-200">{item.nsefutAmount}</TableCell>
-                    <TableCell className="border-r border-gray-200">{item.nsefutLot}</TableCell>
-                    <TableCell className="border-r border-gray-200">{item.mcxfutAmount}</TableCell>
-                    <TableCell className="border-r border-gray-200">{item.mcxfutLot}</TableCell>
-                    <TableCell className="border-r border-gray-200">{item.nseoptAmount}</TableCell>
-                    <TableCell className="border-r border-gray-200">{item.nseoptLot}</TableCell>
-                    <TableCell className="border-r border-gray-200">{item.totalAmount}</TableCell>
-                    <TableCell>{item.totalLot}</TableCell>
+                {filteredData.length === 0 && !isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                      No margin data found
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredData.map((item) => (
+                    <TableRow key={item.id} className="hover:bg-gray-50">
+                      <TableCell className="font-medium border-r border-gray-200">{item.name}</TableCell>
+                      <TableCell className="border-r border-gray-200">{item.nsefutAmount}</TableCell>
+                      <TableCell className="border-r border-gray-200">{item.nsefutLot}</TableCell>
+                      <TableCell className="border-r border-gray-200">{item.mcxfutAmount}</TableCell>
+                      <TableCell className="border-r border-gray-200">{item.mcxfutLot}</TableCell>
+                      <TableCell className="border-r border-gray-200">{item.nseoptAmount}</TableCell>
+                      <TableCell className="border-r border-gray-200">{item.nseoptLot}</TableCell>
+                      <TableCell className="border-r border-gray-200">{item.totalAmount}</TableCell>
+                      <TableCell>{item.totalLot}</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

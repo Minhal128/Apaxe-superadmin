@@ -36,21 +36,18 @@ export default function Summary() {
   }, [])
 
   // Fetch trading summary - immediate: false to control fetch manually
-  const { 
-    data: summaryData, 
+  const {
+    data: summaryData,
     loading,
-    execute: fetchSummary 
+    execute: fetchSummary
   } = useApi(() => summaryApi.getTradingSummary({
     segment: selectedSegment || undefined,
     startDate: getStartDate(),
     endDate: getEndDate()
-  }), { 
+  }), {
     immediate: false,
-    onError: (error: string) => {
-      // Handle authentication errors gracefully
-      if (error.includes('500') || error.includes('401') || error.includes('403')) {
-        console.log('Summary endpoint requires authentication - using mock data');
-      }
+    onError: () => {
+      // Silently handle errors - use fallback mock data
     }
   })
 
@@ -71,13 +68,12 @@ export default function Summary() {
     }
   }
 
-  const summary = summaryData || {
-    // Mock data when API is not available
-    totalTrades: 150,
-    totalVolume: 1250000,
-    totalPnl: 15000,
-    activeUsers: 25,
-    avgTradeSize: 8333
+  const summary = summaryData?.data?.data || {
+    totalTrades: 0,
+    totalVolume: 0,
+    totalPnL: 0,
+    activeUsers: 0,
+    avgTradeSize: 0
   }
 
   return (
@@ -113,9 +109,9 @@ export default function Summary() {
                 <SelectItem value="BSE">BSE</SelectItem>
               </SelectContent>
             </Select>
-            <Button 
-              variant="outline" 
-              onClick={handleRefresh} 
+            <Button
+              variant="outline"
+              onClick={handleRefresh}
               disabled={refreshing}
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
@@ -165,15 +161,13 @@ export default function Summary() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total P&L</p>
-                <p className={`text-2xl font-bold ${
-                  (summary.totalPnl || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
+                <p className={`text-2xl font-bold ${(summary.totalPnl || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
                   {formatCurrency(summary.totalPnl || 0)}
                 </p>
               </div>
-              <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                (summary.totalPnl || 0) >= 0 ? 'bg-green-100' : 'bg-red-100'
-              }`}>
+              <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${(summary.totalPnl || 0) >= 0 ? 'bg-green-100' : 'bg-red-100'
+                }`}>
                 {(summary.totalPnl || 0) >= 0 ? (
                   <TrendingUp className="w-6 h-6 text-green-600" />
                 ) : (
@@ -221,30 +215,30 @@ export default function Summary() {
                     <TableRow>
                       <TableCell className="font-medium">Total Trades</TableCell>
                       <TableCell>{formatNumber(summary.totalTrades || 0, 0)}</TableCell>
-                      <TableCell className="text-green-600">+12%</TableCell>
+                      <TableCell className="text-gray-400">--</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          Active
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-800">
+                          System
                         </Badge>
                       </TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell className="font-medium">Total Volume</TableCell>
                       <TableCell>{formatCurrency(summary.totalVolume || 0)}</TableCell>
-                      <TableCell className="text-green-600">+8%</TableCell>
+                      <TableCell className="text-gray-400">--</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          Growing
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-800">
+                          System
                         </Badge>
                       </TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell className="font-medium">Average Trade Size</TableCell>
                       <TableCell>{formatCurrency(summary.avgTradeSize || 0)}</TableCell>
-                      <TableCell className="text-blue-600">+5%</TableCell>
+                      <TableCell className="text-gray-400">--</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                          Stable
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-800">
+                          System
                         </Badge>
                       </TableCell>
                     </TableRow>

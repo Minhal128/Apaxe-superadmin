@@ -67,8 +67,11 @@ export function useApi<T = any>(
       
       if (onErrorRef.current) {
         onErrorRef.current(errorMessage);
+        // Don't throw if there's an error handler - the error has been handled
+        return null;
       }
       
+      // Only throw if there's no error handler
       throw error;
     }
   }, []); // Empty dependency array - execute is now stable

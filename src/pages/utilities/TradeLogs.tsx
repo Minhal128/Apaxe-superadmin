@@ -4,195 +4,216 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Label } from '@/components/ui/label'
-import { Calendar, Download, List, Search } from 'lucide-react'
+import { Download, List, Search, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { usePaginatedApi } from '@/hooks/useApi'
+import { utilityApi } from '@/services/api'
+import { format } from 'date-fns'
 
 export default function TradeLogs() {
-  const tradeLogsData = [
-    { 
-      action: '09-10-2025',
-      client: '161422',
-      symbol: '161422',
-      orderType: 'DEMO MST-01-Master (706730)',
-      lot: '0.01',
-      qty: '3',
-      orderPrice: '103.215.156.14',
-      deletedBy: 'John Khura',
-      deletedByUser: 'John Khura',
-      userIp: '103.215.156.14'
-    },
-  ]
+  const [filters, setFilters] = useState({
+    startDate: '',
+    endDate: '',
+    userId: '',
+    action: ''
+  })
+
+  const {
+    data: logs,
+    loading,
+    meta,
+    loadPage,
+    refresh
+  } = usePaginatedApi(
+    (params) => utilityApi.getTradeLogs({
+      ...params,
+      ...filters,
+      userId: filters.userId || undefined,
+      action: filters.action || undefined
+    }),
+    { limit: 50 }
+  )
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
+  const handleReset = () => {
+    setFilters({
+      startDate: '',
+      endDate: '',
+      userId: '',
+      action: ''
+    })
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h1 className="text-lg sm:text-xl font-semibold text-gray-800">Trade logs</h1>
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                type="text"
-                placeholder="Search"
-                className="pl-9 w-full h-9 sm:h-10"
-              />
-            </div>
-            <Button variant="outline" size="icon" className="shrink-0 h-9 sm:h-10 w-9 sm:w-10">
-              <Download className="w-4 h-4" />
-            </Button>
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold text-gray-800">Trade logs</h1>
+        <div className="w-full sm:w-64">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              type="text"
+              placeholder="Search by User ID"
+              value={filters.userId}
+              onChange={(e) => handleFilterChange('userId', e.target.value)}
+              className="pl-9 w-full"
+            />
           </div>
         </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 sm:gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
-            <Label className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">Segment</Label>
-            <Select defaultValue="segment">
-              <SelectTrigger className="w-full bg-gray-100 text-xs sm:text-sm h-8 sm:h-10">
-                <SelectValue />
+            <Label className="text-sm text-gray-600 whitespace-nowrap">From</Label>
+            <Input
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => handleFilterChange('startDate', e.target.value)}
+              className="w-40"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Label className="text-sm text-gray-600 whitespace-nowrap">To</Label>
+            <Input
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => handleFilterChange('endDate', e.target.value)}
+              className="w-40"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Label className="text-sm text-gray-600 whitespace-nowrap">Action</Label>
+            <Select
+              value={filters.action}
+              onValueChange={(value) => handleFilterChange('action', value)}
+            >
+              <SelectTrigger className="w-40 bg-gray-100">
+                <SelectValue placeholder="All Actions" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="segment">Segment</SelectItem>
+                <SelectItem value="ALL">All Actions</SelectItem>
+                <SelectItem value="CREATE">Create</SelectItem>
+                <SelectItem value="UPDATE">Update</SelectItem>
+                <SelectItem value="DELETE">Delete</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Label className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">Script name</Label>
-            <Select defaultValue="">
-              <SelectTrigger className="w-full bg-gray-100 text-xs sm:text-sm h-8 sm:h-10">
-                <SelectValue placeholder="Search" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="search">Search</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Label className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">Client</Label>
-            <Select defaultValue="">
-              <SelectTrigger className="w-full bg-gray-100 text-xs sm:text-sm h-8 sm:h-10">
-                <SelectValue placeholder="Search" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="search">Search</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Label className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">Join Before</Label>
-            <div className="relative flex-1">
-              <Input
-                type="text"
-                defaultValue="10/12/2025"
-                className="w-full text-xs sm:text-sm h-8 sm:h-10 pr-8"
-              />
-              <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Label className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">Join After</Label>
-            <div className="relative flex-1">
-              <Input
-                type="text"
-                defaultValue="10/12/2025"
-                className="w-full text-xs sm:text-sm h-8 sm:h-10 pr-8"
-              />
-              <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
-            </div>
-          </div>
+          <Button
+            className="bg-green-500 hover:bg-green-600 text-white"
+            onClick={() => refresh()}
+          >
+            Apply Filters
+          </Button>
+          <Button variant="outline" onClick={handleReset}>
+            Reset
+          </Button>
         </div>
       </div>
 
-      {/* Show All entries */}
-      <div className="bg-white px-4 sm:px-6 py-3 flex items-center justify-between">
+      {/* Action Bar */}
+      <div className="bg-white px-4 sm:px-6 py-3 flex items-center justify-between border-b border-gray-200">
         <div className="flex items-center gap-2">
-          <span className="text-xs sm:text-sm text-gray-600">Show All entries</span>
-          <Button variant="outline" size="sm" className="h-6 w-6 p-0 min-w-6">
-            <span className="text-xs">+</span>
-          </Button>
+          <span className="text-sm text-gray-600">Showing {logs.length} entries</span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <List className="w-4 h-4 text-gray-500 hover:text-gray-700" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <Download className="w-4 h-4 text-gray-500 hover:text-gray-700" />
-          </Button>
+          <List className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
+          <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-3 sm:p-4 md:p-6">
+      <div className="p-4 sm:p-6">
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <div className="min-w-[1000px] sm:min-w-0">
+          {loading ? (
+            <div className="flex items-center justify-center p-12">
+              <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
-                    <TableHead className="text-xs sm:text-sm px-2 sm:px-4 py-2 font-semibold">Action</TableHead>
-                    <TableHead className="text-xs sm:text-sm px-2 sm:px-4 py-2 font-semibold">Client</TableHead>
-                    <TableHead className="text-xs sm:text-sm px-2 sm:px-4 py-2 font-semibold">Symbol</TableHead>
-                    <TableHead className="text-xs sm:text-sm px-2 sm:px-4 py-2 font-semibold">Order Type</TableHead>
-                    <TableHead className="text-xs sm:text-sm px-2 sm:px-4 py-2 font-semibold">Lot</TableHead>
-                    <TableHead className="text-xs sm:text-sm px-2 sm:px-4 py-2 font-semibold">QTY</TableHead>
-                    <TableHead className="text-xs sm:text-sm px-2 sm:px-4 py-2 font-semibold">Order price</TableHead>
-                    <TableHead className="text-xs sm:text-sm px-2 sm:px-4 py-2 font-semibold">Deleted by</TableHead>
-                    <TableHead className="text-xs sm:text-sm px-2 sm:px-4 py-2 font-semibold">Deleted by User</TableHead>
-                    <TableHead className="text-xs sm:text-sm px-2 sm:px-4 py-2 font-semibold">User IP</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Entity</TableHead>
+                    <TableHead>Details</TableHead>
+                    <TableHead>IP Address</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tradeLogsData.map((log, index) => (
-                    <TableRow key={index} className="hover:bg-gray-50">
-                      <TableCell className="font-medium text-xs sm:text-sm px-2 sm:px-4 py-2">
-                        {log.action}
+                  {logs.map((log: any) => (
+                    <TableRow key={log.id} className="hover:bg-gray-50">
+                      <TableCell className="text-sm">
+                        {format(new Date(log.createdAt), 'dd-MM-yyyy HH:mm:ss')}
                       </TableCell>
-                      <TableCell className="text-xs sm:text-sm px-2 sm:px-4 py-2">
-                        {log.client}
+                      <TableCell className="font-medium">
+                        {log.user?.username || log.userId || 'System'}
                       </TableCell>
-                      <TableCell className="text-xs sm:text-sm px-2 sm:px-4 py-2">
-                        {log.symbol}
-                      </TableCell>
-                      <TableCell className="text-xs sm:text-sm px-2 sm:px-4 py-2">
-                        <span className="truncate block max-w-[120px] sm:max-w-none">
-                          {log.orderType}
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${log.action.includes('CREATE') ? 'bg-green-100 text-green-700' :
+                          log.action.includes('UPDATE') ? 'bg-blue-100 text-blue-700' :
+                            log.action.includes('DELETE') ? 'bg-red-100 text-red-700' :
+                              'bg-gray-100 text-gray-700'
+                          }`}>
+                          {log.action}
                         </span>
                       </TableCell>
-                      <TableCell className="text-xs sm:text-sm px-2 sm:px-4 py-2">
-                        {log.lot}
+                      <TableCell className="text-sm">{log.entity}</TableCell>
+                      <TableCell className="text-sm max-w-xs truncate">
+                        {JSON.stringify(log.newData || log.metadata)}
                       </TableCell>
-                      <TableCell className="text-xs sm:text-sm px-2 sm:px-4 py-2">
-                        {log.qty}
-                      </TableCell>
-                      <TableCell className="text-xs sm:text-sm px-2 sm:px-4 py-2">
-                        <span className="font-mono text-[10px] sm:text-xs">
-                          {log.orderPrice}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs sm:text-sm px-2 sm:px-4 py-2">
-                        {log.deletedBy}
-                      </TableCell>
-                      <TableCell className="text-xs sm:text-sm px-2 sm:px-4 py-2">
-                        {log.deletedByUser}
-                      </TableCell>
-                      <TableCell className="text-xs sm:text-sm px-2 sm:px-4 py-2">
-                        <span className="font-mono text-[10px] sm:text-xs">
-                          {log.userIp}
-                        </span>
-                      </TableCell>
+                      <TableCell className="font-mono text-xs">{log.ipAddress || '-'}</TableCell>
                     </TableRow>
                   ))}
+                  {logs.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12 text-gray-500">
+                        No trade logs found matching your filters.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
-          </div>
+          )}
         </Card>
+
+        {/* Pagination */}
+        {meta.totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6">
+            <div className="text-sm text-gray-600">
+              Page {meta.page} of {meta.totalPages}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={meta.page === 1}
+                onClick={() => loadPage(meta.page - 1)}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={meta.page === meta.totalPages}
+                onClick={() => loadPage(meta.page + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
