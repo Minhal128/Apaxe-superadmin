@@ -4,16 +4,60 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Plus, Grid3x3, ChevronDown, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Search, Plus, Grid3x3, ChevronDown, RefreshCw, TrendingUp, TrendingDown, FileText } from 'lucide-react'
 import { dashboardApi, wsService, formatCurrency, formatNumber } from '../services/api'
 import { useApi } from '../hooks/useApi'
 import { toast } from 'react-toastify'
 
+// Segment type definition
+interface Segment {
+  id: string
+  name: string
+  type: string
+  displayName: string
+  isActive: boolean
+}
+
 export default function MarketWatch() {
-  const [selectedMarket, setSelectedMarket] = useState('CRYPTO')
+  const [selectedMarket, setSelectedMarket] = useState('ALL')
   const [selectedScriptName, setSelectedScriptName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+  const [segments, setSegments] = useState<Segment[]>([])
+  const [loadingSegments, setLoadingSegments] = useState(true)
+  
+  // Add Script Modal State
+  const [isScriptsModalOpen, setIsScriptsModalOpen] = useState(false)
+  const [scriptsForm, setScriptsForm] = useState({
+    market: '',
+    symbols: [] as string[],
+    searchSymbol: ''
+  })
+  const [availableScripts] = useState([
+    { symbol: 'BTCUSD', name: 'Bitcoin/USD' },
+    { symbol: 'ETHUSD', name: 'Ethereum/USD' },
+    { symbol: 'XRPUSD', name: 'Ripple/USD' },
+    { symbol: 'ADAUSD', name: 'Cardano/USD' },
+    { symbol: 'SOLUSD', name: 'Solana/USD' },
+    { symbol: 'DOTUSD', name: 'Polkadot/USD' },
+    { symbol: 'AVAXUSD', name: 'Avalanche/USD' },
+    { symbol: 'MATICUSD', name: 'Polygon/USD' },
+    { symbol: 'LINKUSD', name: 'Chainlink/USD' },
+    { symbol: 'UNIUSD', name: 'Uniswap/USD' },
+    { symbol: 'NIFTY', name: 'NIFTY 50' },
+    { symbol: 'BANKNIFTY', name: 'Bank Nifty' },
+    { symbol: 'RELIANCE', name: 'Reliance Industries' },
+    { symbol: 'TCS', name: 'Tata Consultancy Services' },
+    { symbol: 'INFY', name: 'Infosys' },
+    { symbol: 'HDFC', name: 'HDFC Bank' },
+    { symbol: 'GOLD', name: 'Gold' },
+    { symbol: 'SILVER', name: 'Silver' },
+    { symbol: 'CRUDEOIL', name: 'Crude Oil' },
+    { symbol: 'NATURALGAS', name: 'Natural Gas' }
+  ])
 
   // Fetch market data from API
   const { 
@@ -21,6 +65,23 @@ export default function MarketWatch() {
     loading,
     execute: fetchMarket 
   } = useApi(() => dashboardApi.getMarketData({ segment: selectedMarket === 'ALL' ? undefined : selectedMarket }), { immediate: false })
+
+  // Fetch segments on mount
+  useEffect(() => {
+    const fetchSegments = async () => {
+      try {
+        setLoadingSegments(true)
+        const response = await dashboardApi.getSegments(true)
+        const segmentData = response.data?.segments || response.data?.data?.segments || []
+        setSegments(segmentData)
+      } catch (error) {
+        console.error('Failed to fetch segments:', error)
+      } finally {
+        setLoadingSegments(false)
+      }
+    }
+    fetchSegments()
+  }, [])
 
   // Load data on mount and when segment changes
   useEffect(() => {
@@ -84,6 +145,57 @@ export default function MarketWatch() {
     }
   }
 
+  const handleAddScript = () => {
+    // Find the segment ID for the current market
+    const currentSegment = segments.find(s => s.name === selectedMarket || s.type === selectedMarket)
+    setScriptsForm({
+      market: currentSegment?.id || '',
+      symbols: [],
+      searchSymbol: ''
+    })
+    setIsScriptsModalOpen(true)
+  }
+
+  const handleScriptsSubmit = async () => {
+    try {
+      if (!scriptsForm.market || scriptsForm.symbols.length === 0) {
+        toast.error('Please select market and at least one script')
+        return
+      }
+      
+      // Call API to add scripts
+      await dashboardApi.addInstruments({
+        segmentId: scriptsForm.market,
+        symbols: scriptsForm.symbols
+      })
+      
+      toast.success(`${scriptsForm.symbols.length} scripts added successfully`)
+      setIsScriptsModalOpen(false)
+      setScriptsForm({
+        market: '',
+        symbols: [],
+        searchSymbol: ''
+      })
+      fetchMarket() // Refresh data
+    } catch (error) {
+      toast.error('Failed to add scripts')
+    }
+  }
+
+  const toggleScriptSelection = (symbol: string) => {
+    setScriptsForm(prev => ({
+      ...prev,
+      symbols: prev.symbols.includes(symbol)
+        ? prev.symbols.filter(s => s !== symbol)
+        : [...prev.symbols, symbol]
+    }))
+  }
+
+  const filteredAvailableScripts = availableScripts.filter(script =>
+    script.symbol.toLowerCase().includes(scriptsForm.searchSymbol.toLowerCase()) ||
+    script.name.toLowerCase().includes(scriptsForm.searchSymbol.toLowerCase())
+  )
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header with Title, Search and Buttons */}
@@ -115,7 +227,10 @@ export default function MarketWatch() {
               <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button className="bg-green-500 hover:bg-green-600 text-white text-sm px-4 h-10">
+            <Button 
+              className="bg-green-500 hover:bg-green-600 text-white text-sm px-4 h-10"
+              onClick={handleAddScript}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Script
             </Button>
@@ -129,17 +244,17 @@ export default function MarketWatch() {
       {/* Filters Row */}
       <div className="bg-white border-b border-gray-200 px-6 py-3">
         <div className="flex items-center gap-4">
-          <Select value={selectedMarket} onValueChange={setSelectedMarket}>
+          <Select value={selectedMarket} onValueChange={setSelectedMarket} disabled={loadingSegments}>
             <SelectTrigger className="w-36 h-10 bg-white">
               <SelectValue placeholder="All Markets" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Markets</SelectItem>
-              <SelectItem value="CRYPTO">Crypto</SelectItem>
-              <SelectItem value="NSE">NSE</SelectItem>
-              <SelectItem value="MCX">MCX</SelectItem>
-              <SelectItem value="BSE">BSE</SelectItem>
-              <SelectItem value="EXTERNAL">External</SelectItem>
+              {segments.map((segment) => (
+                <SelectItem key={segment.id} value={segment.name}>
+                  {segment.displayName || segment.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -271,6 +386,109 @@ export default function MarketWatch() {
           </div>
         </Card>
       </div>
+
+      {/* Add Scripts Modal */}
+      <Dialog open={isScriptsModalOpen} onOpenChange={setIsScriptsModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-green-500" />
+              Add Scripts to Market Watch
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="scripts-market">Market *</Label>
+              <Select 
+                value={scriptsForm.market} 
+                onValueChange={(val) => setScriptsForm({...scriptsForm, market: val})}
+              >
+                <SelectTrigger id="scripts-market">
+                  <SelectValue placeholder="Select Market" />
+                </SelectTrigger>
+                <SelectContent>
+                  {segments.length > 0 ? (
+                    segments.map((seg) => (
+                      <SelectItem key={seg.id} value={seg.id}>
+                        {seg.displayName || seg.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="CRYPTO">Crypto</SelectItem>
+                      <SelectItem value="NSE">NSE</SelectItem>
+                      <SelectItem value="MCX">MCX</SelectItem>
+                      <SelectItem value="BSE">BSE</SelectItem>
+                      <SelectItem value="FOREX">Forex</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Search Scripts</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input 
+                  placeholder="Search by symbol or name..."
+                  className="pl-10"
+                  value={scriptsForm.searchSymbol}
+                  onChange={(e) => setScriptsForm({...scriptsForm, searchSymbol: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Available Scripts ({filteredAvailableScripts.length})</Label>
+              <div className="border rounded-lg max-h-48 overflow-y-auto">
+                {filteredAvailableScripts.map((script) => (
+                  <div 
+                    key={script.symbol}
+                    className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 border-b last:border-b-0"
+                  >
+                    <Checkbox 
+                      checked={scriptsForm.symbols.includes(script.symbol)}
+                      onCheckedChange={() => toggleScriptSelection(script.symbol)}
+                    />
+                    <div className="flex-1">
+                      <span className="font-medium">{script.symbol}</span>
+                      <span className="text-sm text-gray-500 ml-2">{script.name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {scriptsForm.symbols.length > 0 && (
+              <div className="space-y-2">
+                <Label>Selected Scripts ({scriptsForm.symbols.length})</Label>
+                <div className="flex flex-wrap gap-2">
+                  {scriptsForm.symbols.map((symbol) => (
+                    <span 
+                      key={symbol}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-md text-sm cursor-pointer hover:bg-green-200"
+                      onClick={() => toggleScriptSelection(symbol)}
+                    >
+                      {symbol}
+                      <span className="text-green-500">&times;</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsScriptsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleScriptsSubmit} 
+              className="bg-green-500 hover:bg-green-600"
+              disabled={scriptsForm.symbols.length === 0}
+            >
+              Add {scriptsForm.symbols.length} Scripts
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

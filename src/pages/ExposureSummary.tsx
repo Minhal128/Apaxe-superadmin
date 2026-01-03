@@ -126,7 +126,7 @@ export default function ExposureSummary() {
 
   // Process exposure data from API response
   const segments = SEGMENTS
-  const users = usersResponse?.data?.users || []
+  const users = Array.isArray(usersResponse?.data) ? usersResponse.data : []
   const rawExposureData = exposureResponse?.data?.data
 
   // Transform exposure data for display

@@ -90,6 +90,7 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: TrendingUp, label: 'Market Watch', path: '/market-watch' },
+    { icon: BarChart3, label: 'Instruments', path: '/instruments' },
     { icon: PieChart, label: 'Summary', path: '/summary' },
     { icon: Gauge, label: 'Exposure summary', path: '/exposure-summary' },
   ]

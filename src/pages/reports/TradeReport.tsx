@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { reportsApi, formatDate, formatCurrency } from '@/services/api'
 import { toast } from 'sonner'
 import { Loader2, Download } from 'lucide-react'
+import { exportToExcel } from '@/lib/exportUtils'
 
 export default function TradeReport() {
   const [loading, setLoading] = useState(false)
@@ -44,22 +45,57 @@ export default function TradeReport() {
   }
 
   const handleExport = async (format: 'excel' | 'pdf') => {
-    try {
-      const response = await reportsApi.getTradeReport({
-        ...filters,
-        format
-      })
-      // The browser will handle the download if we use the blob response
-      const blob = new Blob([response.data], { type: format === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/pdf' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `trade-report-${new Date().getTime()}.${format === 'excel' ? 'xlsx' : 'pdf'}`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-    } catch (error) {
-      toast.error(`Failed to export as ${format.toUpperCase()}`)
+    if (reportData.length === 0) {
+      toast.error('No data to export')
+      return
+    }
+
+    if (format === 'excel') {
+      const exportData = reportData.map((trade: any) => ({
+        date: formatDate(trade.createdAt),
+        customer: trade.user?.username || trade.userId || '-',
+        segment: trade.instrument?.segment?.name || '-',
+        symbol: trade.instrument?.tradingSymbol || '-',
+        side: trade.side,
+        quantity: trade.quantity,
+        price: trade.price,
+        value: trade.quantity * trade.price,
+        status: trade.status
+      }))
+
+      const columnMapping = {
+        date: 'Date',
+        customer: 'Customer',
+        segment: 'Segment',
+        symbol: 'Symbol',
+        side: 'Side',
+        quantity: 'Quantity',
+        price: 'Price',
+        value: 'Value',
+        status: 'Status'
+      }
+
+      exportToExcel(exportData, 'Trade_Report', 'Trades', columnMapping)
+      toast.success('Trade report exported successfully')
+    } else {
+      // PDF export - use API blob approach
+      try {
+        const response = await reportsApi.getTradeReport({
+          ...filters,
+          format
+        })
+        const blob = new Blob([response.data], { type: 'application/pdf' })
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `trade-report-${new Date().getTime()}.pdf`)
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        toast.success('PDF exported successfully')
+      } catch (error) {
+        toast.error('Failed to export as PDF')
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import { useApi } from '@/hooks/useApi'
 import { formatDate } from '@/services/api'
 import { toast } from 'sonner'
 import { useState } from 'react'
+import { exportToExcel } from '@/lib/exportUtils'
 
 export default function Settings() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -25,6 +26,32 @@ export default function Settings() {
 
   const handleSearch = () => {
     refresh({ search: searchTerm })
+  }
+
+  const handleExport = () => {
+    if (!bans || bans.length === 0) {
+      toast.error('No data to export')
+      return
+    }
+
+    const exportData = bans.map((item: any) => ({
+      scope: item.scope,
+      script: item.instrument?.symbol || 'GLOBAL',
+      reason: item.reason || '-',
+      time: formatDate(item.createdAt),
+      bannedBy: item.bannedBy?.firstName || 'System'
+    }))
+
+    const columnMapping = {
+      scope: 'Scope',
+      script: 'Script',
+      reason: 'Reason',
+      time: 'Time',
+      bannedBy: 'Banned By'
+    }
+
+    exportToExcel(exportData, 'Ban_Rules', 'Ban Rules', columnMapping)
+    toast.success('Ban rules exported successfully')
   }
 
   return (
@@ -66,7 +93,10 @@ export default function Settings() {
         </div>
         <div className="flex items-center gap-2">
           <Menu className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
-          <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
+          <Download 
+            className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700"
+            onClick={handleExport}
+          />
         </div>
       </div>
 

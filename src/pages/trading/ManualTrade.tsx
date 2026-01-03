@@ -136,8 +136,9 @@ export default function ManualTrade() {
   }
 
   // Process data from API responses
-  const users = usersResponse?.data?.users || []
-  const instruments = instrumentsResponse?.data?.data || []
+  // API returns { success, message, data: [...users], meta: {...} }
+  const users = Array.isArray(usersResponse?.data) ? usersResponse.data : []
+  const instruments = Array.isArray(instrumentsResponse?.data) ? instrumentsResponse.data : (instrumentsResponse?.data?.data || [])
   const trades = tradesResponse?.data || []
 
   // Transform trades for display

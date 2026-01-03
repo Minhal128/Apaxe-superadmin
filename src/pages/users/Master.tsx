@@ -15,7 +15,7 @@ export default function Master() {
   const [showFilters, setShowFilters] = useState(false)
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
   const [filters, setFilters] = useState({
-    role: '',
+    role: 'MASTER', // Filter for MASTER role only
     status: '',
     search: '',
     page: 1,
@@ -77,8 +77,9 @@ export default function Master() {
   }
 
   // Get users data from API response
-  const users = usersResponse?.data?.users || []
-  const pagination = usersResponse?.data?.pagination || { page: 1, totalPages: 1, total: 0 }
+  // API returns { success, message, data: [...users], meta: {...} }
+  const users = Array.isArray(usersResponse?.data) ? usersResponse.data : []
+  const pagination = usersResponse?.meta || { page: 1, totalPages: 1, total: users.length }
 
   const MobileMasterCard = ({ user, index }: { user: any, index: number }) => (
     <Card key={index} className="p-4 mb-4">

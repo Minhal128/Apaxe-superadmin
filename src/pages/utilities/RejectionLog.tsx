@@ -8,6 +8,8 @@ import { useState } from 'react'
 import { usePaginatedApi } from '@/hooks/useApi'
 import { utilityApi } from '@/services/api'
 import { format } from 'date-fns'
+import { exportToExcel } from '@/lib/exportUtils'
+import { toast } from 'react-toastify'
 
 export default function RejectionLog() {
   const [filters, setFilters] = useState({
@@ -41,6 +43,36 @@ export default function RejectionLog() {
       endDate: '',
       userId: ''
     })
+  }
+
+  const handleExport = () => {
+    if (logs.length === 0) {
+      toast.warning('No data to export')
+      return
+    }
+
+    const exportData = logs.map((log: any) => ({
+      time: format(new Date(log.createdAt), 'dd-MM-yyyy HH:mm:ss'),
+      client: log.user?.username || log.userId,
+      symbol: log.instrument?.symbol || '-',
+      side: log.side,
+      quantity: log.quantity,
+      price: log.price || 'Market',
+      reason: log.rejectionReason || 'Unknown rejection'
+    }))
+
+    const columnMapping = {
+      time: 'Time',
+      client: 'Client',
+      symbol: 'Symbol',
+      side: 'Side',
+      quantity: 'Quantity',
+      price: 'Price',
+      reason: 'Reason'
+    }
+
+    exportToExcel(exportData, 'Rejection_Log', 'Rejection Log', columnMapping)
+    toast.success('Rejection log exported successfully')
   }
 
   return (
@@ -104,7 +136,10 @@ export default function RejectionLog() {
         </div>
         <div className="flex items-center gap-2">
           <List className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
-          <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
+          <Download 
+            className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700"
+            onClick={handleExport}
+          />
         </div>
       </div>
 

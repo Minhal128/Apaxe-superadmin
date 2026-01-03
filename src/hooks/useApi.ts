@@ -43,7 +43,10 @@ export function useApi<T = any>(
     
     try {
       const response = await apiFunctionRef.current(...args);
-      const data = response.data.data || response.data;
+      // Preserve the full response structure to maintain access to meta/pagination
+      // If response.data has a nested data property, use the parent object
+      // This keeps both data array and meta object accessible
+      const data = response.data.data !== undefined ? response.data : response.data;
       
       setState({
         data,

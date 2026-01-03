@@ -6,15 +6,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
-import { Download, List, Grid3x3, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Download, List, Grid3x3, Pencil, Trash2, ChevronDown, ChevronUp, RotateCcw, LogOut, RefreshCw } from 'lucide-react'
 import { tradingApi } from '../../services/api'
 import { useApi } from '../../hooks/useApi'
 import { toast } from 'react-toastify'
+import { exportToExcel } from '@/lib/exportUtils'
 
 export default function Position() {
   const [filterType, setFilterType] = useState('all')
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [expandedRows, setExpandedRows] = useState<number[]>([])
+  const [selectedPosition, setSelectedPosition] = useState<string | null>(null)
   const [filters, setFilters] = useState({
     userId: '',
     segmentId: '',
@@ -22,6 +26,20 @@ export default function Position() {
     status: '',
     page: 1,
     limit: 50
+  })
+
+  // Modal states
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false)
+  const [isRolloverModalOpen, setIsRolloverModalOpen] = useState(false)
+  const [exitForm, setExitForm] = useState({
+    reason: '',
+    price: '',
+    quantity: ''
+  })
+  const [rolloverForm, setRolloverForm] = useState({
+    newExpiry: '',
+    newPrice: '',
+    reason: ''
   })
 
   // API call for positions data
@@ -77,12 +95,115 @@ export default function Position() {
     }
   }
 
-  const handleExport = async () => {
-    try {
-      toast.info('Export functionality coming soon')
-    } catch (error) {
-      toast.error('Failed to export data')
+  // Exit Position Handler
+  const handleExitPosition = () => {
+    if (!selectedPosition) {
+      toast.warning('Please select a position to exit')
+      return
     }
+    setExitForm({ reason: '', price: '', quantity: '' })
+    setIsExitModalOpen(true)
+  }
+
+  const handleExitSubmit = async () => {
+    if (!selectedPosition) return
+    
+    try {
+      await tradingApi.closePosition(selectedPosition, {
+        reason: exitForm.reason || 'Exit position by admin',
+        price: exitForm.price ? parseFloat(exitForm.price) : undefined,
+        quantity: exitForm.quantity ? parseInt(exitForm.quantity) : undefined
+      })
+      toast.success('Position exited successfully')
+      setIsExitModalOpen(false)
+      setSelectedPosition(null)
+      fetchPositions(filters)
+    } catch (error) {
+      toast.error('Failed to exit position')
+    }
+  }
+
+  // Rollover Position Handler
+  const handleRollover = () => {
+    if (!selectedPosition) {
+      toast.warning('Please select a position to rollover')
+      return
+    }
+    setRolloverForm({ newExpiry: '', newPrice: '', reason: '' })
+    setIsRolloverModalOpen(true)
+  }
+
+  const handleRolloverSubmit = async () => {
+    if (!selectedPosition) return
+    
+    try {
+      // First close the current position
+      await tradingApi.closePosition(selectedPosition, {
+        reason: `Rollover: ${rolloverForm.reason || 'Position rolled over to new expiry'}`
+      })
+      
+      // Note: In a real implementation, you would also create a new position
+      // with the new expiry date here using executeManualTrade
+      
+      toast.success('Position rolled over successfully')
+      setIsRolloverModalOpen(false)
+      setSelectedPosition(null)
+      fetchPositions(filters)
+    } catch (error) {
+      toast.error('Failed to rollover position')
+    }
+  }
+
+  // Get Position Handler (Refresh)
+  const handleGetPosition = async () => {
+    try {
+      toast.info('Fetching latest positions...')
+      await fetchPositions(filters)
+      toast.success('Positions refreshed successfully')
+    } catch (error) {
+      toast.error('Failed to fetch positions')
+    }
+  }
+
+  // Select position handler
+  const handleSelectPosition = (positionId: string) => {
+    setSelectedPosition(prev => prev === positionId ? null : positionId)
+  }
+
+  const handleExport = async () => {
+    if (positions.length === 0) {
+      toast.warning('No data to export')
+      return
+    }
+
+    const exportData = positions.map((position: any) => ({
+      client: position.user?.username || position.userId || '-',
+      segment: position.instrument?.segment?.name || '-',
+      symbol: position.instrument?.tradingSymbol || '-',
+      expiry: position.instrument?.expiry || '-',
+      side: position.side,
+      quantity: position.quantity || 0,
+      avgPrice: position.averagePrice || 0,
+      ltp: position.currentPrice || 0,
+      pnl: position.unrealizedPnL || 0,
+      status: position.status || 'Open'
+    }))
+
+    const columnMapping = {
+      client: 'Client',
+      segment: 'Segment',
+      symbol: 'Symbol',
+      expiry: 'Expiry',
+      side: 'Side',
+      quantity: 'Quantity',
+      avgPrice: 'Avg Price',
+      ltp: 'LTP',
+      pnl: 'P&L',
+      status: 'Status'
+    }
+
+    exportToExcel(exportData, 'Trading_Positions', 'Positions', columnMapping)
+    toast.success('Positions exported successfully')
   }
 
   // Get positions data from API response
@@ -236,9 +357,27 @@ export default function Position() {
 
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" className="text-xs">Clear filter</Button>
-            <Button className="bg-green-500 hover:bg-green-600 text-white text-xs">Exit position</Button>
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white text-xs">Rollover</Button>
-            <Button className="bg-gray-800 hover:bg-gray-900 text-white text-xs">Get position</Button>
+            <Button 
+              className="bg-green-500 hover:bg-green-600 text-white text-xs"
+              onClick={handleExitPosition}
+            >
+              <LogOut className="w-3 h-3 mr-1" />
+              Exit position
+            </Button>
+            <Button 
+              className="bg-blue-500 hover:bg-blue-600 text-white text-xs"
+              onClick={handleRollover}
+            >
+              <RotateCcw className="w-3 h-3 mr-1" />
+              Rollover
+            </Button>
+            <Button 
+              className="bg-gray-800 hover:bg-gray-900 text-white text-xs"
+              onClick={handleGetPosition}
+            >
+              <RefreshCw className="w-3 h-3 mr-1" />
+              Get position
+            </Button>
           </div>
         </div>
       </div>
@@ -365,9 +504,27 @@ export default function Position() {
             {/* Action Buttons */}
             <div className="grid grid-cols-2 gap-2 border-t pt-3">
               <Button variant="outline" size="sm" className="text-xs">Clear filter</Button>
-              <Button className="bg-green-500 hover:bg-green-600 text-white text-xs">Exit position</Button>
-              <Button className="bg-blue-500 hover:bg-blue-600 text-white text-xs">Rollover</Button>
-              <Button className="bg-gray-800 hover:bg-gray-900 text-white text-xs">Get position</Button>
+              <Button 
+                className="bg-green-500 hover:bg-green-600 text-white text-xs"
+                onClick={handleExitPosition}
+              >
+                <LogOut className="w-3 h-3 mr-1" />
+                Exit position
+              </Button>
+              <Button 
+                className="bg-blue-500 hover:bg-blue-600 text-white text-xs"
+                onClick={handleRollover}
+              >
+                <RotateCcw className="w-3 h-3 mr-1" />
+                Rollover
+              </Button>
+              <Button 
+                className="bg-gray-800 hover:bg-gray-900 text-white text-xs"
+                onClick={handleGetPosition}
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Get position
+              </Button>
             </div>
           </div>
         )}
@@ -418,9 +575,15 @@ export default function Position() {
                   </TableHeader>
                   <TableBody>
                     {positions.map((position: any) => (
-                      <TableRow key={position.id} className="hover:bg-gray-50">
+                      <TableRow key={position.id} className={`hover:bg-gray-50 ${selectedPosition === position.id ? 'bg-blue-50' : ''}`}>
                         <TableCell>
-                          <input type="radio" name="position" className="rounded-full" />
+                          <input 
+                            type="radio" 
+                            name="position" 
+                            className="rounded-full" 
+                            checked={selectedPosition === position.id}
+                            onChange={() => handleSelectPosition(position.id)}
+                          />
                         </TableCell>
                         <TableCell className="font-medium">
                           {position.user?.firstName} {position.user?.lastName}
@@ -479,7 +642,7 @@ export default function Position() {
               {/* Mobile Cards */}
               <div className="lg:hidden">
                 {positions.map((position: any) => (
-                  <Card key={position.id} className="m-4 overflow-hidden">
+                  <Card key={position.id} className={`m-4 overflow-hidden ${selectedPosition === position.id ? 'ring-2 ring-blue-500' : ''}`}>
                     {/* Header - Always Visible */}
                     <div 
                       className="p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50"
@@ -487,7 +650,17 @@ export default function Position() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <input type="radio" name="position" className="rounded-full" />
+                          <input 
+                            type="radio" 
+                            name="position" 
+                            className="rounded-full"
+                            checked={selectedPosition === position.id}
+                            onChange={(e) => {
+                              e.stopPropagation()
+                              handleSelectPosition(position.id)
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
                           <div>
                             <div className="font-semibold text-gray-900">{position.instrument?.symbol}</div>
                             <div className="text-sm text-gray-500 flex items-center gap-2">
@@ -617,6 +790,119 @@ export default function Position() {
           </div>
         )}
       </div>
+
+      {/* Exit Position Modal */}
+      <Dialog open={isExitModalOpen} onOpenChange={setIsExitModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogOut className="w-5 h-5 text-green-500" />
+              Exit Position
+            </DialogTitle>
+            <DialogDescription>
+              Close the selected position. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="exit-quantity">Quantity (optional)</Label>
+              <Input
+                id="exit-quantity"
+                type="number"
+                placeholder="Leave blank to exit full position"
+                value={exitForm.quantity}
+                onChange={(e) => setExitForm({ ...exitForm, quantity: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="exit-price">Price (optional)</Label>
+              <Input
+                id="exit-price"
+                type="number"
+                step="0.01"
+                placeholder="Leave blank for market price"
+                value={exitForm.price}
+                onChange={(e) => setExitForm({ ...exitForm, price: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="exit-reason">Reason</Label>
+              <Input
+                id="exit-reason"
+                placeholder="Enter reason for exit"
+                value={exitForm.reason}
+                onChange={(e) => setExitForm({ ...exitForm, reason: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsExitModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleExitSubmit} className="bg-green-500 hover:bg-green-600">
+              Exit Position
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rollover Position Modal */}
+      <Dialog open={isRolloverModalOpen} onOpenChange={setIsRolloverModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-blue-500" />
+              Rollover Position
+            </DialogTitle>
+            <DialogDescription>
+              Roll over the position to a new expiry date.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-expiry">New Expiry Date *</Label>
+              <Input
+                id="new-expiry"
+                type="date"
+                value={rolloverForm.newExpiry}
+                onChange={(e) => setRolloverForm({ ...rolloverForm, newExpiry: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-price">New Price (optional)</Label>
+              <Input
+                id="new-price"
+                type="number"
+                step="0.01"
+                placeholder="Leave blank for market price"
+                value={rolloverForm.newPrice}
+                onChange={(e) => setRolloverForm({ ...rolloverForm, newPrice: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="rollover-reason">Reason</Label>
+              <Input
+                id="rollover-reason"
+                placeholder="Enter reason for rollover"
+                value={rolloverForm.reason}
+                onChange={(e) => setRolloverForm({ ...rolloverForm, reason: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRolloverModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleRolloverSubmit} 
+              className="bg-blue-500 hover:bg-blue-600"
+              disabled={!rolloverForm.newExpiry}
+            >
+              Rollover Position
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

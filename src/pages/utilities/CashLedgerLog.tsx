@@ -8,6 +8,8 @@ import { useState } from 'react'
 import { usePaginatedApi } from '@/hooks/useApi'
 import { utilityApi } from '@/services/api'
 import { format } from 'date-fns'
+import { exportToExcel } from '@/lib/exportUtils'
+import { toast } from 'react-toastify'
 
 export default function CashLedgerLog() {
   const [filters, setFilters] = useState({
@@ -41,6 +43,36 @@ export default function CashLedgerLog() {
       endDate: '',
       userId: ''
     })
+  }
+
+  const handleExport = () => {
+    if (logs.length === 0) {
+      toast.warning('No data to export')
+      return
+    }
+
+    const exportData = logs.map((log: any) => ({
+      time: format(new Date(log.createdAt), 'dd-MM-yyyy HH:mm:ss'),
+      client: log.user?.username || log.userId,
+      type: log.type,
+      amount: log.type === 'CREDIT' ? `+${log.amount}` : `-${log.amount}`,
+      balanceBefore: log.balanceBefore,
+      balanceAfter: log.balanceAfter,
+      description: log.description || '-'
+    }))
+
+    const columnMapping = {
+      time: 'Time',
+      client: 'Client',
+      type: 'Type',
+      amount: 'Amount',
+      balanceBefore: 'Balance Before',
+      balanceAfter: 'Balance After',
+      description: 'Description'
+    }
+
+    exportToExcel(exportData, 'Cash_Ledger_Log', 'Cash Ledger', columnMapping)
+    toast.success('Cash ledger exported successfully')
   }
 
   return (
@@ -104,7 +136,10 @@ export default function CashLedgerLog() {
         </div>
         <div className="flex items-center gap-2">
           <List className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
-          <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
+          <Download 
+            className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700"
+            onClick={handleExport}
+          />
         </div>
       </div>
 

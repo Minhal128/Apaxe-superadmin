@@ -120,7 +120,7 @@ export default function Trades() {
 
   // Process trades data from API response
   const segments = SEGMENTS
-  const users = usersResponse?.data?.users || []
+  const users = Array.isArray(usersResponse?.data) ? usersResponse.data : []
   const instruments: any[] = [] // Instruments loaded dynamically based on segment
   const rawTradesData = tradesResponse?.data?.trades || tradesResponse?.data || []
   const pagination = tradesResponse?.data?.pagination || { page: 1, totalPages: 1, total: 0 }

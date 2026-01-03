@@ -72,6 +72,9 @@ export const dashboardApi = {
   getDashboard: () =>
     api.get('/superadmin/dashboard'),
 
+  getSegments: (activeOnly?: boolean) =>
+    api.get('/segments', { params: activeOnly ? { activeOnly: 'true' } : {} }),
+
   getMarketWatch: (segment: string, params?: {
     search?: string;
     limit?: number;

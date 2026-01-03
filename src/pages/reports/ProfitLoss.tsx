@@ -5,6 +5,8 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, Download, List, Loader2 } from 'lucide-react'
 import { reportsApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
+import { exportToExcel } from '@/lib/exportUtils'
+import { toast } from 'react-toastify'
 
 export default function ProfitLoss() {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
@@ -19,6 +21,30 @@ export default function ProfitLoss() {
 
   // Extract the actual data array from the API response
   const pnlData = Array.isArray(apiResponse) ? apiResponse : (apiResponse?.data || [])
+
+  const handleExport = () => {
+    if (!pnlData || pnlData.length === 0) {
+      toast.warning('No data to export')
+      return
+    }
+
+    const exportData = pnlData.map((item: any) => ({
+      user: item.user || '-',
+      percentageProfit: item.percentageProfit || '0%',
+      marginUsed: item.marginUsed || '0',
+      netPNL: item.netPNL || '0'
+    }))
+
+    const columnMapping = {
+      user: 'User',
+      percentageProfit: 'Percentage Profit',
+      marginUsed: 'Margin Used',
+      netPNL: 'Net PNL'
+    }
+
+    exportToExcel(exportData, 'Profit_Loss_Report', 'P&L', columnMapping)
+    toast.success('Profit & Loss report exported successfully')
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -98,7 +124,10 @@ export default function ProfitLoss() {
         </div>
         <div className="flex items-center gap-2">
           <List className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
-          <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
+          <Download 
+            className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700"
+            onClick={handleExport}
+          />
         </div>
       </div>
 

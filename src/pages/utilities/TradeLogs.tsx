@@ -9,6 +9,8 @@ import { useState } from 'react'
 import { usePaginatedApi } from '@/hooks/useApi'
 import { utilityApi } from '@/services/api'
 import { format } from 'date-fns'
+import { exportToExcel } from '@/lib/exportUtils'
+import { toast } from 'react-toastify'
 
 export default function TradeLogs() {
   const [filters, setFilters] = useState({
@@ -45,6 +47,34 @@ export default function TradeLogs() {
       userId: '',
       action: ''
     })
+  }
+
+  const handleExport = () => {
+    if (logs.length === 0) {
+      toast.warning('No data to export')
+      return
+    }
+
+    const exportData = logs.map((log: any) => ({
+      time: format(new Date(log.createdAt), 'dd-MM-yyyy HH:mm:ss'),
+      user: log.user?.username || log.userId || 'System',
+      action: log.action,
+      entity: log.entity,
+      details: JSON.stringify(log.newData || log.metadata || {}),
+      ipAddress: log.ipAddress || '-'
+    }))
+
+    const columnMapping = {
+      time: 'Time',
+      user: 'User',
+      action: 'Action',
+      entity: 'Entity',
+      details: 'Details',
+      ipAddress: 'IP Address'
+    }
+
+    exportToExcel(exportData, 'Trade_Logs', 'Trade Logs', columnMapping)
+    toast.success('Trade logs exported successfully')
   }
 
   return (
@@ -126,7 +156,10 @@ export default function TradeLogs() {
         </div>
         <div className="flex items-center gap-2">
           <List className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
-          <Download className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" />
+          <Download 
+            className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700" 
+            onClick={handleExport}
+          />
         </div>
       </div>
 

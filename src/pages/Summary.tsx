@@ -9,6 +9,7 @@ import { summaryApi } from '../services/api'
 import { useApi } from '../hooks/useApi'
 import { formatCurrency, formatNumber } from '../services/api'
 import { toast } from 'react-toastify'
+import { exportToExcel } from '@/lib/exportUtils'
 
 export default function Summary() {
   const [selectedSegment, setSelectedSegment] = useState('')
@@ -68,6 +69,26 @@ export default function Summary() {
     }
   }
 
+  const handleExport = () => {
+    const exportData = [
+      { metric: 'Total Trades', value: summary.totalTrades || 0, change: '--', status: 'System' },
+      { metric: 'Total Volume', value: summary.totalVolume || 0, change: '--', status: 'System' },
+      { metric: 'Total P&L', value: summary.totalPnl || 0, change: '--', status: 'System' },
+      { metric: 'Active Users', value: summary.activeUsers || 0, change: '--', status: 'System' },
+      { metric: 'Average Trade Size', value: summary.avgTradeSize || 0, change: '--', status: 'System' },
+    ]
+
+    const columnMapping = {
+      metric: 'Metric',
+      value: 'Value',
+      change: 'Change',
+      status: 'Status',
+    }
+
+    exportToExcel(exportData, `Trading_Summary_${dateRange}_${selectedSegment}`, 'Summary', columnMapping)
+    toast.success('Summary exported successfully')
+  }
+
   const summary = summaryData?.data?.data || {
     totalTrades: 0,
     totalVolume: 0,
@@ -117,7 +138,7 @@ export default function Summary() {
               <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleExport}>
               <Download className="w-4 h-4 mr-2" />
               Export
             </Button>

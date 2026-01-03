@@ -61,6 +61,9 @@ import ProfitLoss from './pages/reports/ProfitLoss'
 // Settings Page
 import Settings from './pages/Settings'
 
+// Instruments Management
+import InstrumentsManagement from './pages/InstrumentsManagement'
+
 function App() {
   return (
     <AuthProvider>
@@ -87,6 +90,7 @@ function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<SuperAdminDashboard />} />
             <Route path="market-watch" element={<MarketWatch />} />
+            <Route path="instruments" element={<InstrumentsManagement />} />
             <Route path="summary" element={<Summary />} />
             <Route path="exposure-summary" element={<ExposureSummary />} />
             

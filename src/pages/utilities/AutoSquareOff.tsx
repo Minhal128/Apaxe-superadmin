@@ -4,12 +4,23 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Loader2, Save } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useApiSubmit } from '@/hooks/useApi'
-import { utilityApi } from '@/services/api'
+import { utilityApi, dashboardApi } from '@/services/api'
 import { toast } from 'sonner'
 
+// Segment type definition
+interface Segment {
+  id: string
+  name: string
+  type: string
+  displayName: string
+  isActive: boolean
+}
+
 export default function AutoSquareOff() {
+  const [segments, setSegments] = useState<Segment[]>([])
+  const [loadingSegments, setLoadingSegments] = useState(true)
   const [config, setConfig] = useState({
     segmentId: '',
     enabled: false,
@@ -17,6 +28,23 @@ export default function AutoSquareOff() {
     marginThreshold: 80,
     lossThreshold: 50
   })
+
+  // Fetch segments on mount
+  useEffect(() => {
+    const fetchSegments = async () => {
+      try {
+        const response = await dashboardApi.getSegments(true)
+        const segmentData = response.data?.segments || response.data?.data?.segments || []
+        setSegments(segmentData)
+      } catch (error) {
+        console.error('Failed to fetch segments:', error)
+        toast.error('Failed to load segments')
+      } finally {
+        setLoadingSegments(false)
+      }
+    }
+    fetchSegments()
+  }, [])
 
   // We'll need an API to fetch current config, adding placeholder for now
   // since the backend only has POST for it currently.
@@ -57,14 +85,17 @@ export default function AutoSquareOff() {
                 <Select
                   value={config.segmentId}
                   onValueChange={(val) => handleChange('segmentId', val)}
+                  disabled={loadingSegments}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select Segment" />
+                    <SelectValue placeholder={loadingSegments ? "Loading segments..." : "Select Segment"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="FOREX">Forex</SelectItem>
-                    <SelectItem value="COMMODITY">Commodity</SelectItem>
-                    <SelectItem value="EQUITY">Equity</SelectItem>
+                    {segments.map((segment) => (
+                      <SelectItem key={segment.id} value={segment.id}>
+                        {segment.displayName || segment.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500">Select the market segment for these rules</p>

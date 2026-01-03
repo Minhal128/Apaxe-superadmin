@@ -82,7 +82,7 @@ export default function ForexMarginManagement() {
   }
 
   // Data processing
-  const users = usersResponse?.data?.users || []
+  const users = Array.isArray(usersResponse?.data) ? usersResponse.data : []
   const positions = positionsResponse?.data?.positions || positionsResponse?.data || []
 
   const marginData: MarginData[] = users.map((user: any) => {

@@ -90,7 +90,7 @@ export default function ForexSummary() {
     loadData()
   }
 
-  const users = usersResponse?.data?.users || []
+  const users = Array.isArray(usersResponse?.data) ? usersResponse.data : []
   const rawExposureData = exposureResponse?.data?.data?.positions || []
 
   // Transform exposure data for display

@@ -92,7 +92,7 @@ export default function MarginManagement() {
   }
 
   // Process data from API responses
-  const users = usersResponse?.data?.users || []
+  const users = Array.isArray(usersResponse?.data) ? usersResponse.data : []
   const segments = SEGMENTS
   const positions = positionsResponse?.data?.positions || positionsResponse?.data || []
 
