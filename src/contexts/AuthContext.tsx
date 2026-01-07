@@ -116,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       const token = localStorage.getItem('superadmin_token');
-      
+
       if (token) {
         try {
           const response = await authApi.getProfile();
@@ -127,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               token,
             },
           });
-          
+
           // Connect WebSocket
           wsService.connect();
         } catch (error) {
@@ -147,42 +147,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (credentials: { email: string; password: string; expectedRole?: string }) => {
     try {
       dispatch({ type: 'LOGIN_START' });
-      
+
       const response = await authApi.login({ email: credentials.email, password: credentials.password });
       const { user, accessToken } = response.data.data;
-      
+
+      // Deployed URLs for redirection
+      const ROLE_URLS: Record<string, string> = {
+        ADMIN: window.location.origin, // SuperAdmin stays on this app
+        SUPER_MASTER: 'https://forexadmin.vercel.app',
+        MASTER: 'https://forexmaster.vercel.app',
+      };
+
       // Validate user role - only ADMIN, SUPER_MASTER, MASTER can access this panel
       if (!ALLOWED_ROLES.includes(user.role)) {
         throw new Error('Access denied. You do not have permission to access this panel.');
       }
-      
-      // Validate that user role matches the selected role (if expectedRole is provided)
-      if (credentials.expectedRole && user.role !== credentials.expectedRole) {
-        const roleLabels: Record<string, string> = {
-          ADMIN: 'Super Admin',
-          SUPER_MASTER: 'Admin',
-          MASTER: 'Master',
-        };
-        throw new Error(`Access denied. You selected ${roleLabels[credentials.expectedRole] || credentials.expectedRole} but your account is ${roleLabels[user.role] || user.role}.`);
+
+      // If role doesn't match ADMIN (superadmin), redirect to the appropriate app
+      if (user.role !== 'ADMIN') {
+        const targetUrl = ROLE_URLS[user.role];
+        if (targetUrl && targetUrl !== window.location.origin) {
+          toast.info(`Redirecting to ${user.role === 'SUPER_MASTER' ? 'Admin' : 'Master'} dashboard...`);
+          window.location.href = `${targetUrl}/signin?token=${accessToken}`;
+          return;
+        }
       }
-      
+
       localStorage.setItem('superadmin_token', accessToken);
-      
+
       dispatch({
         type: 'LOGIN_SUCCESS',
         payload: { user, token: accessToken },
       });
-      
+
       // Connect WebSocket
       wsService.connect();
-      
+
       toast.success(`Welcome back, ${user.firstName || user.email}!`);
     } catch (error: any) {
       dispatch({ type: 'LOGIN_FAILURE' });
-      
+
       const errorMessage = error.response?.data?.message || error.message || 'Login failed';
       toast.error(errorMessage);
-      
+
       throw error;
     }
   };
@@ -196,10 +203,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       localStorage.removeItem('superadmin_token');
       dispatch({ type: 'LOGOUT' });
-      
+
       // Disconnect WebSocket
       wsService.disconnect();
-      
+
       toast.info('You have been logged out');
     }
   };
@@ -211,12 +218,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!storedRefreshToken) {
         throw new Error('No refresh token available');
       }
-      
+
       const response = await authApi.refreshToken(storedRefreshToken);
       const { user, token } = response.data.data;
-      
+
       localStorage.setItem('superadmin_token', token);
-      
+
       dispatch({
         type: 'REFRESH_TOKEN_SUCCESS',
         payload: { user, token },
@@ -286,19 +293,19 @@ export const withAuth = <P extends object>(Component: React.ComponentType<P>) =>
 // Permission checker hook
 export const usePermissions = () => {
   const { user } = useAuth();
-  
+
   const hasPermission = (permission: keyof User['permissions']) => {
     return user?.permissions[permission] || false;
   };
-  
+
   const hasRole = (role: string) => {
     return user?.role === role;
   };
-  
+
   const isAdmin = () => {
     return user?.role === 'ADMIN';
   };
-  
+
   return {
     hasPermission,
     hasRole,
