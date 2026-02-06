@@ -93,7 +93,7 @@ export default function Master() {
               user.status === 'SUSPENDED' ? 'bg-yellow-500' : 'bg-red-500'
             }`}></div>
             <div>
-              <div className="font-medium text-sm">{user.firstName} {user.lastName}</div>
+              <div className="font-medium text-sm">{user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || 'N/A'}</div>
               <div className="text-xs text-gray-500">ID: {user.id}</div>
             </div>
           </div>
@@ -335,7 +335,7 @@ export default function Master() {
                 <TableBody>
                   {users.map((user: any) => (
                     <TableRow key={user.id} className="hover:bg-gray-50">
-                      <TableCell className="font-medium">{user.firstName} {user.lastName}</TableCell>
+                      <TableCell className="font-medium">{user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || 'N/A'}</TableCell>
                       <TableCell>{user.username}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>

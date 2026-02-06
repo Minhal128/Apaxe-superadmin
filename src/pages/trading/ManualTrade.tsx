@@ -121,7 +121,7 @@ export default function ManualTrade() {
         price: 0
       }))
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to execute trade')
+      toast.error(error?.response?.data?.error?.message || error?.response?.data?.message || 'Failed to execute trade')
     } finally {
       setIsSubmitting(false)
     }

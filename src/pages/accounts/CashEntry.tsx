@@ -115,7 +115,7 @@ export default function CashEntry() {
       handleClear()
     } catch (error: any) {
       console.error('Error creating cash entry:', error)
-      toast.error(error.response?.data?.message || 'Failed to create cash entry')
+      toast.error(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to create cash entry')
     } finally {
       setLoading(false)
     }

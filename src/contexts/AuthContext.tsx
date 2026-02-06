@@ -187,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       dispatch({ type: 'LOGIN_FAILURE' });
 
-      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+      const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Login failed';
       toast.error(errorMessage);
 
       throw error;

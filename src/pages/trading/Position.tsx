@@ -586,7 +586,7 @@ export default function Position() {
                           />
                         </TableCell>
                         <TableCell className="font-medium">
-                          {position.user?.firstName} {position.user?.lastName}
+                          {position.user?.name || `${position.user?.firstName || ''} ${position.user?.lastName || ''}`.trim() || position.user?.username || 'N/A'}
                         </TableCell>
                         <TableCell>{position.instrument?.symbol}</TableCell>
                         <TableCell>{position.instrument?.segment?.name}</TableCell>
@@ -664,7 +664,7 @@ export default function Position() {
                           <div>
                             <div className="font-semibold text-gray-900">{position.instrument?.symbol}</div>
                             <div className="text-sm text-gray-500 flex items-center gap-2">
-                              <span>{position.user?.firstName} {position.user?.lastName}</span>
+                              <span>{position.user?.name || `${position.user?.firstName || ''} ${position.user?.lastName || ''}`.trim() || position.user?.username || 'N/A'}</span>
                               <Badge className={`text-xs ${
                                 position.side === 'SELL' 
                                   ? 'bg-red-100 text-red-700' 

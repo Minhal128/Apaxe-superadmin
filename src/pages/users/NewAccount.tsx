@@ -73,7 +73,7 @@ export default function NewAccount() {
       else if (role === 'SUPER_MASTER') navigate('/users/dealer')
       else navigate('/users/master')
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create account')
+      toast.error(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to create account')
     } finally {
       setLoading(false)
     }
